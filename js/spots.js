@@ -7,7 +7,7 @@
   const TABLES = {
     '6max': { key: '6max', name: '6-max', positions: ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'] },
     '9max': { key: '9max', name: '9-max (full ring)', positions: ['UTG', 'UTG+1', 'UTG+2', 'LJ', 'HJ', 'CO', 'BTN', 'SB', 'BB'] },
-    'hu':   { key: 'hu', name: 'Heads-up', positions: ['SB', 'BB'], dealer: 'SB', labels: { SB: 'SB/BTN' } }
+    'hu':   { key: 'hu', name: 'Heads-up', positions: ['SB', 'BB'], dealer: 'SB' }
   };
   const POSITION_NAMES = {
     'UTG': 'Under the gun', 'UTG+1': 'UTG+1', 'UTG+2': 'UTG+2', 'LJ': 'Lojack', 'HJ': 'Hijack',
