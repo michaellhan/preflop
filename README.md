@@ -1,4 +1,4 @@
-# Preflop Lab
+# Preflop Trainer
 
 A GTO Wizard-style **preflop trainer** for 100bb cash games. Static site, no build step.
 

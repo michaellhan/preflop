@@ -16,4 +16,4 @@ http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': types[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-store' });
     res.end(data);
   });
-}).listen(port, '127.0.0.1', () => console.log('Preflop Lab at http://localhost:' + port));
+}).listen(port, '127.0.0.1', () => console.log('Preflop Trainer at http://localhost:' + port));
