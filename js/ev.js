@@ -9,7 +9,8 @@
 (function (root) {
   'use strict';
   const H = root.Hands, S = root.Spots, E = root.Equity;
-  const SAMPLES = 1200;
+  let SAMPLES = 1200;
+  const CAL_SAMPLES = 200;
 
   function findSpot(table, type, hero, villain) {
     return S.getSpots(table).find(s => s.type === type && s.hero === hero && (s.villain || null) === (villain || null));
@@ -238,29 +239,121 @@
     return { raise: evRaise, call: evCall, fold: -1 };
   }
 
+  function rawEVs(spot, heroIds, hand) {
+    if (spot.table === 'hu' && spot.type === 'rfi') return evHUOpen(spot, heroIds, hand);
+    if (spot.table === 'hu' && spot.type === 'vsLimp' && spot.hero === 'SB') return evHUIso(spot, heroIds, hand);
+    if (spot.type === 'rfi') return evRFI(spot, heroIds, hand);
+    if (spot.type === 'vsOpen') return evVsOpen(spot, heroIds, hand);
+    if (spot.type === 'vs3bet') return evVs3bet(spot, heroIds, hand);
+    return evVsLimp(spot, heroIds, hand);
+  }
+
+  /* ---------- per-spot calibration ----------
+     The raw model has systematic biases (e.g. it can overrate 4-bets in one spot). For each spot we
+     compute raw EVs for every hand once, then shift each action's EV by a constant so that the model's
+     ordering agrees with GTO on the hands GTO plays purely. Actions are calibrated in a chain against the
+     previous one (fold -> call -> raise), picking the shift that best separates "purely this action" hands
+     from "purely the previous action" hands. */
+  const CAL_KEY = 'preflop-lab-evcal-v1';
+  let calStore = null;
+  function loadCal() { if (calStore) return calStore; try { calStore = JSON.parse(root.localStorage.getItem(CAL_KEY) || '{}'); } catch (e) { calStore = {}; } return calStore; }
+  function saveCal() { try { root.localStorage.setItem(CAL_KEY, JSON.stringify(calStore)); } catch (e) { /* ignore */ } }
+  function fixedCards(hand) { // deterministic suits for calibration
+    const r1 = hand[0], r2 = hand[1];
+    if (hand.length === 2) return [{ r: r1, s: 's' }, { r: r2, s: 'h' }];
+    if (hand[2] === 's') return [{ r: r1, s: 's' }, { r: r2, s: 's' }];
+    return [{ r: r1, s: 's' }, { r: r2, s: 'h' }];
+  }
+  function bestThreshold(pos, neg) { // pos gaps should be > t, neg gaps < t
+    if (!pos.length || !neg.length) return 0;
+    const all = pos.map(g => ({ g, p: 1 })).concat(neg.map(g => ({ g, p: 0 }))).sort((a, b) => a.g - b.g);
+    let best = -1, bestT = 0;
+    for (let i = 0; i <= all.length; i++) {
+      const t = i === 0 ? all[0].g - 1e-6 : i === all.length ? all[all.length - 1].g + 1e-6 : (all[i - 1].g + all[i].g) / 2;
+      let ok = 0;
+      for (const x of all) if ((x.p === 1 && x.g > t) || (x.p === 0 && x.g < t)) ok++;
+      if (ok > best) { best = ok; bestT = t; }
+    }
+    return bestT;
+  }
+  const calMem = {};
+  function calHands(spot) { return H.ALL_HANDS.filter(h => !(spot.prior && spot.prior[h] === 0)); }
+  function calRaw(spot, h) {
+    const c = fixedCards(h);
+    const keep = SAMPLES; SAMPLES = CAL_SAMPLES;
+    try { return rawEVs(spot, [E.cid(c[0]), E.cid(c[1])], h); } finally { SAMPLES = keep; }
+  }
+  function finishCalibration(spot, raw) {
+    const keys = spot.actions.map(a => a.key);
+    const bias = {};
+    bias[keys[keys.length - 1]] = 0; // residual action (fold/check) is the reference
+    for (let i = keys.length - 2; i >= 0; i--) {
+      const a = keys[i], prev = keys[i + 1];
+      const pos = [], neg = [];
+      for (const h in raw) {
+        const f = spot.strategy[h];
+        const gap = (raw[h][a]) - (raw[h][prev] - bias[prev]);
+        if (f[a] >= 0.999) pos.push(gap);
+        else if (f[prev] >= 0.999) neg.push(gap);
+      }
+      bias[a] = bestThreshold(pos, neg);
+    }
+    calMem[spot.id] = bias;
+    loadCal()[spot.id] = bias; saveCal();
+    return bias;
+  }
+  function calibration(spot) {
+    if (calMem[spot.id]) return calMem[spot.id];
+    const store = loadCal();
+    if (store[spot.id]) { calMem[spot.id] = store[spot.id]; return calMem[spot.id]; }
+    const raw = {};
+    for (const h of calHands(spot)) raw[h] = calRaw(spot, h);
+    return finishCalibration(spot, raw);
+  }
+
   const cache = {};
   /* Returns { evs: {action: bb}, gtoEV, loss(chosenKey) } for a dealt hand in a spot. */
   function analyze(spot, cards, hand) {
     const key = spot.id + '|' + hand;
     if (cache[key]) return cache[key];
     const heroIds = [E.cid(cards[0]), E.cid(cards[1])];
-    let evs;
-    if (spot.table === 'hu' && spot.type === 'rfi') evs = evHUOpen(spot, heroIds, hand);
-    else if (spot.table === 'hu' && spot.type === 'vsLimp' && spot.hero === 'SB') evs = evHUIso(spot, heroIds, hand);
-    else if (spot.type === 'rfi') evs = evRFI(spot, heroIds, hand);
-    else if (spot.type === 'vsOpen') evs = evVsOpen(spot, heroIds, hand);
-    else if (spot.type === 'vs3bet') evs = evVs3bet(spot, heroIds, hand);
-    else evs = evVsLimp(spot, heroIds, hand);
+    const bias = calibration(spot);
+    const evs = rawEVs(spot, heroIds, hand);
+    for (const k in evs) evs[k] -= (bias[k] || 0);
     const f = spot.strategy[hand];
     let gtoEV = 0;
     for (const a of spot.actions) gtoEV += (f[a.key] || 0) * evs[a.key];
+    const floor = 0.05 + 0.02 * spot.pot; // an action GTO never takes is never free
     const res = {
       evs, gtoEV,
-      loss: chosen => (f[chosen] > 0 ? 0 : Math.max(0, gtoEV - evs[chosen]))
+      loss: chosen => (f[chosen] > 0 ? 0 : Math.max(floor, gtoEV - evs[chosen]))
     };
     cache[key] = res;
     return res;
   }
+  /* Calibrate spots in the background, a few hands at a time, so the UI never blocks. */
+  let preQueue = [], preRunning = false;
+  function precalibrate(spots) {
+    const store = loadCal();
+    preQueue = spots.filter(s => !calMem[s.id] && !store[s.id]);
+    if (preRunning || !preQueue.length) return;
+    preRunning = true;
+    let cur = null, raw = null, hands = null, idx = 0;
+    const later = fn => setTimeout(fn, 0); // short timed slices keep the page responsive
+    const step = () => {
+      if (!cur) {
+        cur = preQueue.shift();
+        if (!cur) { preRunning = false; return; }
+        if (calMem[cur.id]) { cur = null; return later(step); }
+        raw = {}; hands = calHands(cur); idx = 0;
+      }
+      const t0 = Date.now();
+      while (idx < hands.length && Date.now() - t0 < 20) { const h = hands[idx++]; raw[h] = calRaw(cur, h); }
+      if (idx >= hands.length) { finishCalibration(cur, raw); cur = null; }
+      later(step);
+    };
+    later(step);
+  }
 
-  root.EV = { analyze, eqr, SAMPLES };
+  root.EV = { analyze, eqr, SAMPLES, calibration, precalibrate };
 })(typeof window !== 'undefined' ? window : globalThis);

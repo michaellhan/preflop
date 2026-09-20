@@ -79,7 +79,7 @@
     $('#sound-on').checked = settings.sound !== false;
     $('#spot-count').textContent = candidateSpots().length + ' spots in rotation';
   }
-  function persistSettings() { saveJSON(SETTINGS_KEY, settings); renderSettings(); newHand(); }
+  function persistSettings() { saveJSON(SETTINGS_KEY, settings); renderSettings(); newHand(); window.EV.precalibrate(candidateSpots()); }
 
   $$('#table-select button').forEach(b => b.addEventListener('click', () => { settings.table = b.dataset.table; persistSettings(); }));
   $$('#type-select input').forEach(i => i.addEventListener('change', () => { settings.types[i.value] = i.checked; persistSettings(); }));
@@ -484,4 +484,5 @@
   renderSettings();
   renderStats();
   newHand();
+  window.EV.precalibrate(candidateSpots());
 })();
