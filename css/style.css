@@ -189,15 +189,9 @@ label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
 .ev-details { flex-basis: 100%; font-size: 12px; color: var(--muted); }
 .ev-details summary { cursor: pointer; color: var(--muted); }
 .ev-details div { margin-top: 4px; }
-.why-box { margin-top: 12px; padding: 12px 14px; background: var(--panel-2); border-radius: 10px; font-size: 13.5px; line-height: 1.5; }
-.why-head { margin-bottom: 6px; }
-.why-cat { display: inline-block; padding: 2px 9px; border-radius: 999px; background: #3a3455; color: var(--accent); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
+.why-box { margin-top: 12px; padding: 2px 0 2px 12px; border-left: 3px solid var(--border); font-size: 14px; line-height: 1.5; }
 .why-text { margin: 0; }
-.why-row { display: grid; grid-template-columns: 62px 1fr; gap: 10px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
-.why-k { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; padding-top: 3px; }
-.why-row.mix .why-k { color: #d9c27a; }
-.why-row.pattern .why-k { color: #2fa39a; }
-.why-row.pattern span:last-child { color: #b8e3cf; }
+.why-pattern { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
 .ev-badge { padding: 2px 9px; border-radius: 999px; font-weight: 800; font-size: 13px; background: var(--panel-2); cursor: help; }
 .ev-badge.good { color: var(--call); } .ev-badge.meh { color: var(--accent); } .ev-badge.bad { color: var(--raise); }
 .pill.review { color: #9fd3b6; border-color: #2fa39a; }

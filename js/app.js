@@ -231,10 +231,7 @@
   }
 
   function whyMarkup(ex) {
-    return '<div class="why-head"><span class="why-cat">' + ex.catName + '</span></div>' +
-      '<p class="why-text">' + ex.why + '</p>' +
-      (ex.mix ? '<div class="why-row mix"><span class="why-k">Mixed</span><span>' + ex.mix + '</span></div>' : '') +
-      (ex.compare ? '<div class="why-row pattern"><span class="why-k">Pattern</span><span>' + ex.compare + '</span></div>' : '');
+    return '<p class="why-text">' + ex.why + '</p>' + (ex.compare ? '<p class="why-pattern">' + ex.compare + '</p>' : '');
   }
   function renderFeedback() {
     const { spot, hand, chosen, verdict: v } = current;

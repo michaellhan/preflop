@@ -93,7 +93,8 @@
         'offsuit-king': 'the open is profitable only because the blinds fold so often; the hand itself is weak',
         'offsuit-connector': 'the open is profitable only because the blinds fold so often and the hand can make straights',
         'offsuit-junk': 'this is a pure steal: it wins only when the blinds fold' };
-      return where + (parts[c.cat] || 'the hand is strong enough to open') + '.';
+      const core = parts[c.cat] || 'the hand is strong enough to open';
+      return core.charAt(0).toUpperCase() + core.slice(1) + '.';
     }
     const foldParts = { 'small-pair': 'a small pair loses too often: it needs a heads-up pot with deep implied odds, and with this many players behind it gets 3-bet or outflopped too frequently',
       'medium-pair': 'even a medium pair is marginal here: it is behind every bigger pair and faces too many 3-bets',
@@ -110,7 +111,8 @@
       'offsuit-king': 'a weak-kicker king is dominated and cannot make flushes; it only works as a steal from late position',
       'offsuit-connector': 'offsuit connectors rarely make straights and have no showdown value, so they cannot be opened profitably here',
       'offsuit-junk': 'it has no high-card value, no suit and no connectivity, so it only wins when everyone folds, and that is not often enough' };
-    return where + (foldParts[c.cat] || 'the hand is not strong enough to open') + '.';
+    const core = foldParts[c.cat] || 'the hand is not strong enough to open';
+    return core.charAt(0).toUpperCase() + core.slice(1) + '.';
   }
 
   function vsOpenReason(spot, c, hand, primary, freqs) {
@@ -157,7 +159,7 @@
         'offsuit-junk': 'Even junk defends sometimes at this price from the big blind; it only needs to realize a little equity' };
       why = (parts[c.cat] || 'The hand calls here') + '.';
     } else {
-      const parts = { 'small-pair': 'A small pair folds against ' + vDesc + (vc === 'early' ? ': the opener\'s range is tight, will 4-bet or fold to a 3-bet, and rarely pays off a set, while calling out of position with a hand that only wins by hitting is too expensive' : ': set-mining needs a cheap price and a pot that stays heads-up, and here it does not'),
+      const parts = { 'small-pair': 'A small pair folds against ' + vDesc + (vc === 'early' ? ': a tight range rarely pays off a set, and a hand that only wins by hitting cannot call this price' : ': set-mining needs a cheap price and a pot that stays heads-up, and here it does not'),
         'medium-pair': 'A medium pair folds against this range: it is dominated by bigger pairs, cannot call profitably out of position and is too weak to 3-bet',
         'big-offsuit-ace': 'The offsuit ace folds: it is dominated by AK/AQ/AJ in ' + vDesc + ' and has no way to make a straight or flush',
         'AQ': 'AQ folds against a very tight early range: too often it runs into AK, AA, KK or QQ',
@@ -175,7 +177,7 @@
         'offsuit-junk': 'This is an easy fold: no high cards, no suit and no connectivity' };
       why = (parts[c.cat] || 'The hand folds here') + '.';
     }
-    return heroDesc + ' ' + why;
+    return why;
   }
 
   function vs3betReason(spot, c, hand, primary, freqs) {
@@ -227,36 +229,34 @@
         'AQ': 'AQ folds against a tight 3-bet range from this seat: it is dominated by AK and the big pairs and cannot call profitably out of position' };
       why = (parts[c.cat] || 'The hand folds to the 3-bet') + '.';
     }
-    return ctx + ' ' + why;
+    return why;
   }
 
   function vsLimpReason(spot, c, hand, primary, freqs) {
-    const ctx = 'The small blind limped a capped, medium-strength range and you have position for the whole hand.';
-    if (primary === 'raise') return ctx + ' Raising isolates a weak range: you take the pot down often, and when called you play a bigger pot in position with a hand that ' + (c.pair || c.cat.indexOf('ace') >= 0 || c.cat.indexOf('broadway') >= 0 ? 'has real showdown value' : 'plays well after the flop') + '.';
-    return ctx + ' Checking with a weak hand takes a free flop: raising would be called too often by hands that beat you, and you keep the pot small out of a hand with little equity.';
+    if (primary === 'raise') return 'Raising isolates the SB\'s weak limping range: you take the pot down often and otherwise play a bigger pot in position with a hand that ' + (c.pair || c.cat.indexOf('ace') >= 0 || c.cat.indexOf('broadway') >= 0 ? 'has real showdown value' : 'plays well after the flop') + '.';
+    return 'A weak hand takes the free flop: raising would get called too often by better hands, so keep the pot small.';
   }
 
   /* ---------- comparisons that teach the pattern ---------- */
   function comparison(spot, c, hand, primary) {
-    const vc = spot.villain ? posClass(spot.villain) : null;
     if (spot.type === 'vsOpen' && (c.cat === 'wheel-suited-ace' || c.cat === 'mid-suited-ace'))
-      return 'Pattern: A2s-A5s 3-bet more than A6s-A9s. The wheel aces block AA/AK, make wheel straights and lose little when 4-bet, so they are the best bluffs; A6s-A9s dominate more of the opener\'s calling range, so they prefer to call and keep those hands in.';
+      return 'A2s-A5s 3-bet more than A6s-A9s: the wheel aces block AA/AK and lose little when 4-bet, while A6s-A9s dominate more of the calling range and prefer to call.';
     if (spot.type === 'vsOpen' && c.cat === 'small-pair')
-      return 'Pattern: small pairs fold against early opens but call against cutoff and button opens. A tight range rarely pays off a set and 3-bets or folds to aggression, while a wide range is often beaten by a small pair unimproved and gives better implied odds heads-up.';
+      return 'Small pairs fold to early opens but call late ones: a tight range rarely pays off a set, a wide one often does and is often behind unimproved.';
     if (spot.type === 'vsOpen' && c.cat === 'offsuit-broadway')
-      return 'Pattern: KQo/KJo/QJo fold against early opens but continue against late opens. The tighter the opener\'s range, the larger the share of AK/AQ/AJ/KQ that dominates them.';
+      return 'KQo/KJo/QJo fold to early opens but continue vs late ones: the tighter the range, the more AK/AQ/AJ/KQ dominate them.';
     if (spot.type === 'vsOpen' && (c.cat === 'suited-connector' || c.cat === 'suited-gapper') && spot.hero === 'SB')
-      return 'Pattern: suited connectors call in position but rarely from the small blind. Out of position, with the big blind still to act, they realize far less of their equity, so the SB plays 3-bet-or-fold.';
+      return 'Suited connectors call in position but rarely from the SB: out of position with the BB behind they realize too little equity.';
     if (spot.type === 'rfi' && posClass(spot.hero) === 'early' && (c.cat === 'suited-king' || c.cat === 'suited-connector' || c.cat === 'weak-offsuit-ace'))
-      return 'Pattern: the same hand opens from the cutoff or button. Opening ranges widen from about 17% under the gun to 45% on the button because fewer players remain to 3-bet you and you are more often in position.';
+      return 'The same hand opens from the cutoff or button: ranges widen from ~17% UTG to ~45% on the button as fewer players remain behind.';
     if (spot.type === 'vs3bet' && c.cat === 'wheel-suited-ace')
-      return 'Pattern: A5s/A4s are 4-bet bluffs, A9s-A6s are not. Blocking AA and AK matters most when the villain\'s continuing range is so narrow, and the wheel aces lose the least when they have to fold.';
+      return 'A5s/A4s are 4-bet bluffs, A9s-A6s are not: blocking AA/AK matters most against a narrow continuing range.';
     if (spot.type === 'vs3bet' && (c.cat === 'AK' || c.cat === 'premium-pair'))
-      return 'Pattern: 4-bet value hands are KK+/AK with QQ mixed. Against a 3-bet range the value threshold rises because only premiums continue against a 4-bet.';
+      return '4-bet value is KK+/AK with QQ mixed: only premiums continue against a 4-bet, so the value threshold rises.';
     if (spot.type === 'vsOpen' && spot.hero === 'BB' && spot.villain === 'SB')
-      return 'Pattern: BB vs SB is the widest defence in poker. You close the action, get a good price and have position; only the very worst hands fold.';
+      return 'BB vs SB is the widest defence in poker: you close the action, get a good price and have position.';
     if (spot.type === 'rfi' && spot.hero === 'SB' && (c.cat === 'offsuit-junk' || c.cat === 'offsuit-connector'))
-      return 'Pattern: the SB opens almost as wide as the button (about 44%) even though it is out of position, because only one player is left and the 3bb raise wins the pot outright most of the time.';
+      return 'The SB opens almost as wide as the button (~44%): only one player is left and the 3bb raise usually wins the pot outright.';
     return null;
   }
 
@@ -276,7 +276,7 @@
       mix = played.map(a => label(a.key) + ' ' + pct(freqs[a.key])).join(' / ') + '. The options are close in EV; mixing keeps the range balanced.';
     }
     const cmp = comparison(spot, c, hand, primary);
-    return { what, why, mix, compare: cmp ? cmp.replace(/^Pattern: /, '') : null, cat: c.cat, catName: CAT_NAME[c.cat] };
+    return { what, why, mix, compare: cmp, cat: c.cat, catName: CAT_NAME[c.cat] };
   }
 
   root.Explain = { explain, classify };
