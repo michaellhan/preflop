@@ -76,14 +76,14 @@
         'strong-pair': 'the hand is far ahead of the range that will call, and raising denies overcards a free flop',
         'medium-pair': 'the pair has enough showdown value and set potential to profit, and raising takes the blinds outright often enough',
         'small-pair': 'the pair is profitable only because the raise wins the blinds often and sets get paid off; it is close to a fold from early seats',
-        'AK': 'AK is a clear open everywhere: it dominates the calling range and wins the blinds when everyone folds',
-        'AQ': 'AQ is a clear open everywhere and gets value from weaker aces and broadways',
-        'big-suited-ace': 'a big suited ace opens from every seat: strong high card, nut-flush potential and it dominates the aces that call',
+        'AK': 'AK is a clear open: it dominates the calling range and wins the blinds when everyone folds',
+        'AQ': 'AQ is a clear open: it gets value from weaker aces and broadways',
+        'big-suited-ace': 'a big suited ace is a clear open: strong high card, nut-flush potential and it dominates the aces that call',
         'big-offsuit-ace': 'the hand is strong enough to open because it dominates many calling hands, even though it plays poorly after the flop',
-        'mid-suited-ace': 'suited aces open from every position: they block AA/AK, can make the nut flush and flop well enough to continue against most 3-bets or folds cheaply',
-        'wheel-suited-ace': 'suited wheel aces open from every seat: they block AA/AK, make the nut flush and wheel straights, and their equity is well distributed',
+        'mid-suited-ace': 'a suited ace opens: it blocks AA/AK, makes the nut flush, and can continue against some 3-bets or fold cheaply',
+        'wheel-suited-ace': 'a suited wheel ace opens: it blocks AA/AK, makes the nut flush and wheel straights, and its equity is well distributed',
         'weak-offsuit-ace': 'the hand wins the blinds often enough and its ace-high has some showdown value against the blinds\' wide defending ranges',
-        'suited-broadway': 'suited broadways open from any position: they flop top pairs and big draws and rarely get dominated badly',
+        'suited-broadway': 'a suited broadway opens: it flops top pairs and big draws and rarely gets dominated badly',
         'offsuit-broadway': 'two high cards win the blinds often and make top pair; the domination risk is acceptable with few players behind',
         'suited-king': 'the flush potential and position make the open profitable, mostly because the blinds fold often enough',
         'suited-queen': 'the flush potential and position make the open profitable, mostly because the blinds fold often enough',
@@ -273,9 +273,10 @@
     else why = vsLimpReason(spot, c, hand, primary, freqs);
     let mix = null;
     if (played.length > 1) {
-      mix = 'Mixed (' + played.map(a => label(a.key) + ' ' + pct(freqs[a.key])).join(' / ') + '): the options are close in EV and mixing keeps the range balanced.';
+      mix = played.map(a => label(a.key) + ' ' + pct(freqs[a.key])).join(' / ') + '. The options are close in EV; mixing keeps the range balanced.';
     }
-    return { what, why, mix, compare: comparison(spot, c, hand, primary), cat: c.cat, catName: CAT_NAME[c.cat] };
+    const cmp = comparison(spot, c, hand, primary);
+    return { what, why, mix, compare: cmp ? cmp.replace(/^Pattern: /, '') : null, cat: c.cat, catName: CAT_NAME[c.cat] };
   }
 
   root.Explain = { explain, classify };

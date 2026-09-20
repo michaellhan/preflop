@@ -147,8 +147,6 @@
     $('#situation').innerHTML =
       '<span class="pill">' + T6.name + '</span><span class="pill">100bb</span><span class="pill type">' + S.TYPE_META[spot.type].name + '</span>' + (current.review ? '<span class="pill review">Review · not scored</span>' : '') +
       '<div class="sit-text">' + spot.description + ' <strong>' + spot.question + '</strong></div>';
-    const cardsHtml = cards.map(c => '<span class="mini-card suit-' + c.s + '">' + c.r + H.SUIT_SYMBOL[c.s] + '</span>').join('');
-    $('#hero-hand').innerHTML = cardsHtml + '<span class="hand-name">' + hand + ' &middot; ' + H.handLabel(hand) + '</span>';
     const act = $('#action-buttons');
     act.innerHTML = '';
     spot.actions.forEach((a, i) => {
@@ -232,6 +230,12 @@
     return spot.actions.filter(a => freqs[a.key] > 0).map(a => labelOf(spot, a.key) + ' ' + Math.round(freqs[a.key] * 100) + '%').join(', ');
   }
 
+  function whyMarkup(ex) {
+    return '<div class="why-head"><span class="why-cat">' + ex.catName + '</span></div>' +
+      '<p class="why-text">' + ex.why + '</p>' +
+      (ex.mix ? '<div class="why-row mix"><span class="why-k">Mixed</span><span>' + ex.mix + '</span></div>' : '') +
+      (ex.compare ? '<div class="why-row pattern"><span class="why-k">Pattern</span><span>' + ex.compare + '</span></div>' : '');
+  }
   function renderFeedback() {
     const { spot, hand, chosen, verdict: v } = current;
     const freqs = spot.strategy[hand];
@@ -265,7 +269,7 @@
     let whyHtml = '';
     try {
       const ex = window.Explain.explain(spot, hand, freqs);
-      whyHtml = '<div class="why-box"><span class="why-cat">' + ex.catName + '</span> ' + ex.why + (ex.mix ? ' <span class="why-mix">' + ex.mix + '</span>' : '') + (ex.compare ? '<p class="why-compare">' + ex.compare + '</p>' : '') + '</div>';
+      whyHtml = '<div class="why-box">' + whyMarkup(ex) + '</div>';
     } catch (err) { console.error('explain failed', err); }
     fb.innerHTML = '<div class="fb-head"><span class="verdict">' + headline + '</span>' + evBadge + '<span class="fb-hand">' + hand + ' as ' + spot.hero + (spot.villain ? ' vs ' + spot.villain : '') + '</span></div><div class="fb-text">' + expl + '</div>' + bars + whyHtml;
   }
@@ -388,7 +392,7 @@
       if (out) { why.classList.add('hidden'); return; }
       const ex = window.Explain.explain(spot, hand, freqs);
       why.classList.remove('hidden');
-      why.innerHTML = '<span class="why-cat">' + ex.catName + '</span> ' + ex.why + (ex.mix ? ' <span class="why-mix">' + ex.mix + '</span>' : '') + (ex.compare ? '<p class="why-compare">' + ex.compare + '</p>' : '');
+      why.innerHTML = whyMarkup(ex);
     };
     G.renderGrid($('#chart-grid'), spot.strategy, spot.actions, { prior: spot.prior, onHover: showHand });
     G.renderLegend($('#chart-legend'), spot.actions);
