@@ -125,8 +125,12 @@
     renderHand();
   }
 
+  function spotOfMistake(m) {
+    const spots = S.getSpots(m.table || settings.table);
+    return spots.find(s => s.id === m.spotId) || spots.find(s => s.title === m.title) || null;
+  }
   function reviewMistake(m) {
-    const spot = S.getSpots(m.table).find(s => s.id === m.spotId);
+    const spot = spotOfMistake(m);
     if (!spot) return;
     current = { spot, hand: m.hand, cards: m.cards || H.dealCards(m.hand), answered: false, chosen: null, review: true };
     renderHand();
@@ -319,9 +323,10 @@
     if (!stats.mistakes.length) mis.innerHTML = '<div class="muted">No mistakes yet.</div>';
     for (const m of stats.mistakes) {
       const d = document.createElement('div');
-      d.className = 'mistake ' + m.level + (m.spotId ? ' clickable' : '');
+      const reviewable = !!spotOfMistake(m);
+      d.className = 'mistake ' + m.level + (reviewable ? ' clickable' : '');
       d.innerHTML = '<b>' + m.hand + '</b> ' + m.title + ' <span class="muted">' + (m.table === '9max' ? '9-max' : '6-max') + '</span>' + (m.loss ? ' <span class="loss">−' + m.loss.toFixed(2) + ' bb</span>' : '') + '<br><span class="muted">You: ' + m.chosen + ' · GTO: ' + m.gto + '</span>';
-      if (m.spotId) { d.title = 'Replay this spot'; d.addEventListener('click', () => reviewMistake(m)); }
+      if (reviewable) { d.title = 'Replay this spot'; d.addEventListener('click', () => reviewMistake(m)); }
       mis.appendChild(d);
     }
   }
