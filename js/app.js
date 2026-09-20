@@ -14,7 +14,8 @@
     positions: { '6max': null, '9max': null }, // null = all
     dealing: 'weighted',
     showRange: true,
-    autoNext: false
+    autoNext: false,
+    sound: true
   });
   let settings = loadJSON(SETTINGS_KEY, defaults());
   if (!settings.types || !settings.positions) settings = defaults();
@@ -74,6 +75,7 @@
     $$('#dealing-select input').forEach(i => { i.checked = i.value === settings.dealing; });
     $('#show-range').checked = !!settings.showRange;
     $('#auto-next').checked = !!settings.autoNext;
+    $('#sound-on').checked = settings.sound !== false;
     $('#spot-count').textContent = candidateSpots().length + ' spots in rotation';
   }
   function persistSettings() { saveJSON(SETTINGS_KEY, settings); renderSettings(); newHand(); }
@@ -81,6 +83,7 @@
   $$('#table-select button').forEach(b => b.addEventListener('click', () => { settings.table = b.dataset.table; persistSettings(); }));
   $$('#type-select input').forEach(i => i.addEventListener('change', () => { settings.types[i.value] = i.checked; persistSettings(); }));
   $$('#dealing-select input').forEach(i => i.addEventListener('change', () => { if (i.checked) { settings.dealing = i.value; persistSettings(); } }));
+  $('#sound-on').addEventListener('change', e => { settings.sound = e.target.checked; saveJSON(SETTINGS_KEY, settings); if (settings.sound) window.Sound.play('correct'); });
   $('#auto-next').addEventListener('change', e => { settings.autoNext = e.target.checked; saveJSON(SETTINGS_KEY, settings); });
   $('#show-range').addEventListener('change', e => { settings.showRange = e.target.checked; saveJSON(SETTINGS_KEY, settings); if (current && current.answered) renderReveal(); });
 
@@ -183,6 +186,7 @@
     const freqs = spot.strategy[hand];
     const v = verdictFor(freqs, key);
     current.answered = true; current.chosen = key; current.verdict = v;
+    if (settings.sound !== false) window.Sound.play(v.level);
     let loss = 0, analysis = null;
     try { analysis = window.EV.analyze(spot, current.cards, hand); loss = analysis.loss(key); } catch (err) { console.error('EV model failed', err); }
     current.analysis = analysis; current.loss = loss;
