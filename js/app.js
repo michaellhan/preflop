@@ -125,12 +125,19 @@
     renderHand();
   }
 
+  function reviewMistake(m) {
+    const spot = S.getSpots(m.table).find(s => s.id === m.spotId);
+    if (!spot) return;
+    current = { spot, hand: m.hand, cards: m.cards || H.dealCards(m.hand), answered: false, chosen: null, review: true };
+    renderHand();
+    window.scrollTo(0, 0);
+  }
   function renderHand() {
     const { spot, hand, cards } = current;
     const T6 = S.TABLES[spot.table];
     T.renderTable($('#table-svg'), { positions: T6.positions, hero: spot.hero, seats: spot.seats, pot: spot.pot, heroCards: cards });
     $('#situation').innerHTML =
-      '<span class="pill">' + T6.name + '</span><span class="pill">100bb</span><span class="pill type">' + S.TYPE_META[spot.type].name + '</span>' +
+      '<span class="pill">' + T6.name + '</span><span class="pill">100bb</span><span class="pill type">' + S.TYPE_META[spot.type].name + '</span>' + (current.review ? '<span class="pill review">Review · not scored</span>' : '') +
       '<div class="sit-text">' + spot.description + ' <strong>' + spot.question + '</strong></div>';
     const cardsHtml = cards.map(c => '<span class="mini-card suit-' + c.s + '">' + c.r + H.SUIT_SYMBOL[c.s] + '</span>').join('');
     $('#hero-hand').innerHTML = cardsHtml + '<span class="hand-name">' + hand + ' &middot; ' + H.handLabel(hand) + '</span>';
@@ -175,6 +182,7 @@
     current.analysis = analysis; current.loss = loss;
     current.blunder = v.level === 'wrong' && loss >= 1;
 
+    if (current.review) { renderFeedback(); renderReveal(); finishButtons(key, freqs, v); return; }
     // stats
     const pts = v.level === 'correct' ? 1 : v.f;
     stats.total++; stats.points += pts;
@@ -187,7 +195,7 @@
     const bt = stats.byType[spot.type] || (stats.byType[spot.type] = { total: 0, points: 0 });
     bt.total++; bt.points += pts;
     if (v.level !== 'correct') {
-      stats.mistakes.unshift({ title: spot.title, table: spot.table, hand, chosen: labelOf(spot, key), gto: gtoLine(spot, freqs), level: v.level, loss });
+      stats.mistakes.unshift({ title: spot.title, table: spot.table, spotId: spot.id, hand, cards: current.cards, chosen: labelOf(spot, key), gto: gtoLine(spot, freqs), level: v.level, loss });
       stats.mistakes = stats.mistakes.slice(0, 15);
     }
     saveJSON(STATS_KEY, stats);
@@ -195,7 +203,9 @@
     renderFeedback();
     renderReveal();
     renderStats();
-    // show the result on the buttons themselves, in place
+    finishButtons(key, freqs, v);
+  }
+  function finishButtons(key, freqs, v) {
     $$('#action-buttons .action-btn').forEach(b => {
       const f = freqs[b.dataset.key] || 0;
       b.disabled = true;
@@ -223,34 +233,33 @@
     const headline = v.level === 'correct' ? 'Correct' : v.level === 'mixed' ? 'Acceptable (mixed strategy)' : (current.blunder ? 'Blunder' : 'Mistake');
     let expl;
     const chosenLabel = labelOf(spot, chosen), bestLabel = labelOf(spot, v.best);
-    if (v.level === 'correct' && v.f >= 0.999) expl = 'GTO always plays <b>' + bestLabel + '</b> with ' + hand + ' here.';
-    else if (v.level === 'correct') expl = 'GTO plays <b>' + chosenLabel + '</b> ' + Math.round(v.f * 100) + '% of the time with ' + hand + ' here; it is the most frequent action.';
-    else if (v.level === 'mixed') expl = 'GTO mixes here: <b>' + chosenLabel + '</b> only ' + Math.round(v.f * 100) + '% of the time. The main line with ' + hand + ' is <b>' + bestLabel + '</b> (' + Math.round(v.bf * 100) + '%).';
-    else expl = 'GTO never plays <b>' + chosenLabel + '</b> with ' + hand + ' here. The correct action is <b>' + bestLabel + '</b>' + (v.bf < 0.999 ? ' (' + Math.round(v.bf * 100) + '%)' : '') + '.';
+    if (v.level === 'correct' && v.f >= 0.999) expl = 'GTO always plays <b>' + bestLabel + '</b> here.';
+    else if (v.level === 'correct') expl = '<b>' + chosenLabel + '</b> is the main line (' + Math.round(v.f * 100) + '%).';
+    else if (v.level === 'mixed') expl = '<b>' + chosenLabel + '</b> is played only ' + Math.round(v.f * 100) + '%; the main line is <b>' + bestLabel + '</b> (' + Math.round(v.bf * 100) + '%).';
+    else expl = 'GTO never plays <b>' + chosenLabel + '</b> here; it plays <b>' + bestLabel + '</b>' + (v.bf < 0.999 ? ' (' + Math.round(v.bf * 100) + '%)' : '') + '.';
     let bars = '<div class="freq-bars">';
     for (const a of spot.actions) {
       const f = freqs[a.key] || 0;
       bars += '<div class="freq-row"><span class="freq-label">' + labelOf(spot, a.key) + '</span><div class="freq-track"><div class="freq-fill" style="width:' + (f * 100).toFixed(0) + '%;background:' + a.color + '"></div></div><span class="freq-pct">' + Math.round(f * 100) + '%</span></div>';
     }
     bars += '</div>';
-    // EV loss line
-    let evHtml = '';
+    // EV loss badge (in the header)
+    let evBadge = '';
     if (current.analysis) {
       const loss = current.loss;
-      const lossTxt = loss < 0.005 ? '0.00 bb' : loss.toFixed(2) + ' bb';
-      const cls = loss >= 1 ? 'bad' : loss > 0 ? 'meh' : 'good';
-      const tip = v.level === 'wrong' && loss < 0.05 ? ' (a close spot: the model rates the options within noise)' : (v.level !== 'wrong' ? ' (GTO plays this action, so by equilibrium it costs nothing)' : '');
+      const cls = loss >= 1 ? 'bad' : loss > 0.05 ? 'meh' : 'good';
+      const txt = loss < 0.005 ? '0.00' : '−' + loss.toFixed(2);
+      const title = v.level !== 'wrong' ? 'GTO plays this action, so it costs nothing' : loss < 0.05 ? 'Close spot: options within model noise' : 'Estimated EV lost vs the GTO mix';
       const modelEvs = spot.actions.map(a => labelOf(spot, a.key) + ' ' + (current.analysis.evs[a.key] >= 0 ? '+' : '') + current.analysis.evs[a.key].toFixed(2)).join(' · ');
-      evHtml = '<div class="ev-line ' + cls + '"><span class="ev-label">Est. EV loss</span><span class="ev-val">' + lossTxt + '</span><span class="ev-tip">' + tip + '</span>' +
-        '<details class="ev-details"><summary>model EVs</summary><div>' + modelEvs + ' (bb, absolute; approximate, see About)</div></details></div>';
+      evBadge = '<span class="ev-badge ' + cls + '" title="' + title + ' (model EVs: ' + modelEvs + ' bb)">' + txt + ' bb EV</span>';
     }
     // why note
     let whyHtml = '';
     try {
       const ex = window.Explain.explain(spot, hand, freqs);
-      whyHtml = '<div class="why-box"><div class="why-title">Why</div><p>' + ex.what + '</p><p>' + ex.why + '</p>' + (ex.mix ? '<p class="why-mix">' + ex.mix + '</p>' : '') + (ex.compare ? '<p class="why-compare">' + ex.compare + '</p>' : '') + '</div>';
+      whyHtml = '<div class="why-box"><span class="why-cat">' + ex.catName + '</span> ' + ex.why + (ex.mix ? ' <span class="why-mix">' + ex.mix + '</span>' : '') + (ex.compare ? '<p class="why-compare">' + ex.compare + '</p>' : '') + '</div>';
     } catch (err) { console.error('explain failed', err); }
-    fb.innerHTML = '<div class="fb-head"><span class="verdict">' + headline + '</span><span class="fb-hand">' + hand + ' as ' + spot.hero + (spot.villain ? ' vs ' + spot.villain : '') + '</span></div><div class="fb-text">' + expl + '</div>' + bars + evHtml + whyHtml;
+    fb.innerHTML = '<div class="fb-head"><span class="verdict">' + headline + '</span>' + evBadge + '<span class="fb-hand">' + hand + ' as ' + spot.hero + (spot.villain ? ' vs ' + spot.villain : '') + '</span></div><div class="fb-text">' + expl + '</div>' + bars + whyHtml;
   }
 
   function renderReveal() {
@@ -282,8 +291,7 @@
   function renderStats() {
     $('#stat-acc').textContent = pct(stats.points, stats.total);
     $('#stat-hands').textContent = stats.total;
-    $('#stat-streak').textContent = stats.streak + (stats.bestStreak ? ' (best ' + stats.bestStreak + ')' : '');
-    $('#stat-breakdown').textContent = stats.correct + ' correct · ' + stats.mixed + ' mixed · ' + stats.wrong + ' wrong' + (stats.blunders ? ' (' + stats.blunders + ' blunders)' : '');
+    $('#stat-breakdown').textContent = stats.correct + ' correct · ' + stats.mixed + ' mixed · ' + stats.wrong + ' wrong' + (stats.blunders ? ' · ' + stats.blunders + ' blunders' : '') + ' · streak ' + stats.streak;
     $('#stat-ev').textContent = stats.total ? ((stats.evLoss || 0) / stats.total).toFixed(2) + ' bb' : '–';
     $('#stat-evtotal').textContent = stats.total ? (stats.evLoss || 0).toFixed(1) + ' bb' : '–';
     const pos = $('#stat-pos');
@@ -311,8 +319,9 @@
     if (!stats.mistakes.length) mis.innerHTML = '<div class="muted">No mistakes yet.</div>';
     for (const m of stats.mistakes) {
       const d = document.createElement('div');
-      d.className = 'mistake ' + m.level;
-      d.innerHTML = '<b>' + m.hand + '</b> ' + m.title + ' <span class="muted">(' + S.TABLES[m.table].name + ')</span>' + (m.loss ? ' <span class="loss">−' + m.loss.toFixed(2) + ' bb</span>' : '') + '<br><span class="muted">You: ' + m.chosen + ' · GTO: ' + m.gto + '</span>';
+      d.className = 'mistake ' + m.level + (m.spotId ? ' clickable' : '');
+      d.innerHTML = '<b>' + m.hand + '</b> ' + m.title + ' <span class="muted">' + (m.table === '9max' ? '9-max' : '6-max') + '</span>' + (m.loss ? ' <span class="loss">−' + m.loss.toFixed(2) + ' bb</span>' : '') + '<br><span class="muted">You: ' + m.chosen + ' · GTO: ' + m.gto + '</span>';
+      if (m.spotId) { d.title = 'Replay this spot'; d.addEventListener('click', () => reviewMistake(m)); }
       mis.appendChild(d);
     }
   }
@@ -370,13 +379,13 @@
       if (out) { why.classList.add('hidden'); return; }
       const ex = window.Explain.explain(spot, hand, freqs);
       why.classList.remove('hidden');
-      why.innerHTML = '<div class="why-title">Why</div><p>' + ex.what + '</p><p>' + ex.why + '</p>' + (ex.mix ? '<p class="why-mix">' + ex.mix + '</p>' : '') + (ex.compare ? '<p class="why-compare">' + ex.compare + '</p>' : '');
+      why.innerHTML = '<span class="why-cat">' + ex.catName + '</span> ' + ex.why + (ex.mix ? ' <span class="why-mix">' + ex.mix + '</span>' : '') + (ex.compare ? '<p class="why-compare">' + ex.compare + '</p>' : '');
     };
     G.renderGrid($('#chart-grid'), spot.strategy, spot.actions, { prior: spot.prior, onHover: showHand });
     G.renderLegend($('#chart-legend'), spot.actions);
     G.renderSummary($('#chart-summary'), spot.strategy, spot.actions, spot.prior);
     T.renderTable($('#chart-table-svg'), { positions: T6.positions, hero: spot.hero, seats: spot.seats, pot: spot.pot, heroCards: null });
-    info.innerHTML = '<div class="muted">Hover or tap a hand to see its exact frequencies and why GTO plays it that way.</div>';
+    info.innerHTML = '<div class="muted">Hover a hand for its frequencies and the reasoning.</div>';
     $('#chart-why').classList.add('hidden');
     const src = $('#chart-source');
     src.textContent = 'Data key: ' + spot.source + (spot.table === '9max' && /UTG\+|LJ/.test(spot.hero + (spot.villain || '')) ? ' (9-max early positions reuse the structurally equivalent 6-max strategy, see About)' : '');

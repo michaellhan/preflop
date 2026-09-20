@@ -31,10 +31,10 @@
         <div class="group">
           <h3>Scenarios</h3>
           <div id="type-select">
-            <label class="check"><input type="checkbox" value="rfi"> Open (raise first in)</label>
-            <label class="check"><input type="checkbox" value="vsOpen"> Facing an open (3-bet / call / fold)</label>
-            <label class="check"><input type="checkbox" value="vs3bet"> Facing a 3-bet (4-bet / call / fold)</label>
-            <label class="check"><input type="checkbox" value="vsLimp"> BB vs SB limp (raise / check)</label>
+            <label class="check"><input type="checkbox" value="rfi"> Open (RFI)</label>
+            <label class="check"><input type="checkbox" value="vsOpen"> Facing an open</label>
+            <label class="check"><input type="checkbox" value="vs3bet"> Facing a 3-bet</label>
+            <label class="check"><input type="checkbox" value="vsLimp"> BB vs SB limp</label>
           </div>
         </div>
         <div class="group">
@@ -44,17 +44,15 @@
         <div class="group">
           <h3>Dealing</h3>
           <div id="dealing-select">
-            <label class="check"><input type="radio" name="dealing" value="weighted"> Focus on playable hands</label>
+            <label class="check" title="Deals pure-fold hands 70% less often"><input type="radio" name="dealing" value="weighted"> Focus on playable hands</label>
             <label class="check"><input type="radio" name="dealing" value="uniform"> Realistic (random deal)</label>
           </div>
-          <div class="small-note">"Focus" deals pure-fold hands 70% less often so you see more real decisions.</div>
         </div>
         <div class="group">
-          <label class="check"><input type="checkbox" id="show-range"> Show GTO range after each answer</label>
-          <label class="check"><input type="checkbox" id="auto-next"> Auto-advance 1.5s after a correct answer</label>
+          <label class="check"><input type="checkbox" id="show-range"> Show range after answer</label>
+          <label class="check"><input type="checkbox" id="auto-next"> Auto-advance when correct</label>
           <div class="small-note" id="spot-count"></div>
         </div>
-        <div class="group small-note">Keys: <b>1 / 2 / 3</b> to act · <b>Space</b> for next hand</div>
       </aside>
 
       <div class="trainer-main">
@@ -87,10 +85,9 @@
           <div class="stat-box"><div class="v" id="stat-evtotal">–</div><div class="l">EV lost total</div></div>
         </div>
         <div class="small-note" id="stat-breakdown"></div>
-        <div class="small-note">Streak: <span id="stat-streak">0</span></div>
         <div class="group" style="margin-top:14px"><h3>By position</h3><div id="stat-pos"></div></div>
         <div class="group"><h3>By scenario</h3><div id="stat-type"></div></div>
-        <div class="group"><h3>Recent misses</h3><div id="stat-mistakes"></div></div>
+        <div class="group"><h3>Recent misses <span class="muted" style="font-weight:500;text-transform:none;letter-spacing:0">· click to review</span></h3><div id="stat-mistakes"></div></div>
         <button id="reset-stats" class="link-btn">Reset stats</button>
       </aside>
     </div>
@@ -124,7 +121,6 @@
           <h3 id="chart-villain-label">Opener</h3>
           <div class="chips" id="chart-villain"></div>
         </div>
-        <div class="small-note">Each cell is split left-to-right by action frequency. Hover a cell for exact numbers.</div>
       </aside>
 
       <div>

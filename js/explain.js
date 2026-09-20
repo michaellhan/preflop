@@ -117,7 +117,7 @@
     const V = spot.villain, hero = spot.hero;
     const vc = posClass(V), ip = inPosition(spot.table, hero, V);
     const vDesc = vc === 'early' ? 'an early-position open (a tight range of about 15-18%)' : vc === 'middle' ? 'a hijack open (about 22%)' : V === 'CO' ? 'a cutoff open (about 29%)' : V === 'BTN' ? 'a button open (about 45%)' : 'a small-blind open (about 44%)';
-    const heroDesc = hero === 'BB' ? (V === 'SB' ? 'In the big blind you close the action and have position for the whole hand, so you can defend very wide.' : 'In the big blind you close the action and already have 1bb invested, so you get a good price to call, but you will play the hand out of position.') : hero === 'SB' ? 'From the small blind you are out of position and the big blind is still behind you, so calling is unattractive: the SB mostly 3-bets or folds.' : ip ? 'You have position on the opener' + (behind(spot.table, hero) > 2 ? ' but ' + (behind(spot.table, hero) - 2) + ' player(s) plus the blinds are still behind you, so calling risks a squeeze.' : ' and only the blinds are behind you.') : '';
+    const heroDesc = hero === 'BB' ? (V === 'SB' ? 'BB vs SB: you close the action with position, so you defend very wide.' : 'In the BB you close the action at a good price, but play out of position.') : hero === 'SB' ? 'The SB is out of position with the BB still behind, so it mostly 3-bets or folds.' : ip ? (behind(spot.table, hero) > 2 ? 'You have position, but ' + (behind(spot.table, hero) - 2) + ' player(s) plus the blinds behind can squeeze.' : 'You have position and only the blinds behind.') : '';
     let why = '';
     if (primary === 'raise') {
       const parts = { 'premium-pair': 'This is a value 3-bet: you want to build the pot against the opener\'s continuing range and deny cheap flops to hands that can outdraw you',
@@ -180,7 +180,7 @@
 
   function vs3betReason(spot, c, hand, primary, freqs) {
     const V = spot.villain, hero = spot.hero, ip = inPosition(spot.table, hero, V);
-    const ctx = 'Facing a 3-bet ' + (ip ? 'from the blinds you will have position after the flop, which makes calling more attractive.' : 'from a player behind you, you will be out of position, so calling requires a hand that plays well without initiative.') + ' The 3-bettor\'s range is polarized: premiums plus suited-ace and broadway bluffs.';
+    const ctx = (ip ? 'You will have position after the flop, which makes calling more attractive.' : 'You will be out of position, so calling needs a hand that plays well without initiative.') + ' The 3-bet range is polarized: premiums plus suited-ace and broadway bluffs.';
     let why;
     if (primary === 'raise') {
       const parts = { 'premium-pair': 'A 4-bet for value: you want stacks in against the 3-bettor\'s value hands and to charge the bluffs',
@@ -273,7 +273,7 @@
     else why = vsLimpReason(spot, c, hand, primary, freqs);
     let mix = null;
     if (played.length > 1) {
-      mix = 'GTO mixes here (' + played.map(a => label(a.key) + ' ' + pct(freqs[a.key])).join(', ') + '). The options are close in EV, and mixing keeps every part of your range balanced so an opponent cannot exploit a fixed choice. ' + label(primary) + ' is the main line.';
+      mix = 'Mixed (' + played.map(a => label(a.key) + ' ' + pct(freqs[a.key])).join(' / ') + '): the options are close in EV and mixing keeps the range balanced.';
     }
     return { what, why, mix, compare: comparison(spot, c, hand, primary), cat: c.cat, catName: CAT_NAME[c.cat] };
   }
