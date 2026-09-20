@@ -29,7 +29,10 @@
   function mass(weights, blockers) { return E.rangeMass(weights, blockers); }
   const RANDOM_MASS = 1225; // C(50,2)
 
-  function postIdx(table, pos) { if (pos === 'SB') return 0; if (pos === 'BB') return 1; return 2 + S.TABLES[table].positions.indexOf(pos); }
+  function postIdx(table, pos) {
+    if (table === 'hu') return pos === 'SB' ? 1 : 0; // heads-up: the SB is the button and acts last
+    if (pos === 'SB') return 0; if (pos === 'BB') return 1; return 2 + S.TABLES[table].positions.indexOf(pos);
+  }
   const RV = E.RV;
   /* Hand-type equity realization: strong made hands over-realize, weak/bluff-type hands under-realize. */
   const CAT_EQR = { 'premium-pair': 1.10, 'strong-pair': 1.08, 'AK': 1.08, 'AQ': 1.04, 'medium-pair': 1.0, 'big-suited-ace': 1.0, 'suited-broadway': 1.0,
@@ -45,7 +48,9 @@
     const ip = postIdx(table, hero) > postIdx(table, villain);
     let e = ip ? 1.0 : 0.82;
     if (initiative) e += 0.05;
-    e *= handMod(hand);
+    let hm = handMod(hand);
+    if (table === 'hu') hm = 0.5 + 0.5 * hm; // heads-up ranges are so wide that "weak" hand types are closer to average
+    e *= hm;
     if (!isStrong(hand)) { if (level === 2) e *= 0.88; else if (level === 3) e *= 0.8; }
     return e;
   }
@@ -176,13 +181,61 @@
   function evVsLimp(spot, heroIds, hand) {
     const table = spot.table;
     const seed = seedOf(spot.id + hand);
-    const evCheck = eqr(table, 'BB', 'SB', false, hand, 1) * E.equity(heroIds, SB_LIMP, SAMPLES, seed) * 2 - 1;
-    const callR = scale(SB_LIMP, SB_CALL_ISO), threeR = scale(SB_LIMP, SB_3BET_ISO);
-    const mAll = mass(SB_LIMP, heroIds) || 1e-9;
+    let limpR = SB_LIMP, callR, threeR;
+    const isoSpot = findSpot(table, 'vsLimp', 'SB', 'BB');
+    if (isoSpot) { // real limping range and responses (heads-up)
+      limpR = weightsOf(findSpot(table, 'rfi', 'SB', null).strategy, 'limp');
+      callR = weightsOf(isoSpot.strategy, 'call', isoSpot.prior); threeR = weightsOf(isoSpot.strategy, 'raise', isoSpot.prior);
+    } else { callR = scale(SB_LIMP, SB_CALL_ISO); threeR = scale(SB_LIMP, SB_3BET_ISO); }
+    const evCheck = eqr(table, 'BB', 'SB', false, hand, 1) * E.equity(heroIds, limpR, SAMPLES, seed) * 2 - 1;
+    const mAll = mass(limpR, heroIds) || 1e-9;
     const pC = mass(callR, heroIds) / mAll, pR = mass(threeR, heroIds) / mAll, pF = Math.max(0, 1 - pC - pR);
     const evCallV = eqr(table, 'BB', 'SB', true, hand, 1) * E.equity(heroIds, callR, SAMPLES, seed + 1) * 8 - 4;
-    const evRaiseV = pR > 0 ? Math.max(-4, E.equity(heroIds, threeR, SAMPLES, seed + 2) * 200 - 100) : 0;
+    const evRaiseV = pR > 0 ? Math.max(-4, eqr(table, 'BB', 'SB', false, hand, 2) * E.equity(heroIds, threeR, SAMPLES, seed + 2) * 24 - 12) : 0;
     return { raise: pF * 1 + pC * evCallV + pR * evRaiseV, check: evCheck };
+  }
+
+  /* Heads-up SB first in: raise / limp / fold. */
+  function evHUOpen(spot, heroIds, hand) {
+    const table = 'hu', seed = seedOf(spot.id + hand);
+    const vsOpen = findSpot(table, 'vsOpen', 'BB', 'SB'), vsLimp = findSpot(table, 'vsLimp', 'BB', 'SB'), iso = findSpot(table, 'vsLimp', 'SB', 'BB'), my3 = findSpot(table, 'vs3bet', 'SB', 'BB');
+    // raise 2.5
+    const callR = weightsOf(vsOpen.strategy, 'call'), threeR = weightsOf(vsOpen.strategy, 'raise');
+    const pc = mass(callR, heroIds) / RANDOM_MASS, pr = mass(threeR, heroIds) / RANDOM_MASS;
+    let evRaise = (1 - pc - pr) * 1;
+    evRaise += pc * (eqr(table, 'SB', 'BB', true, hand, 1) * E.equity(heroIds, callR, SAMPLES, seed) * 5 - 2.5);
+    if (pr > 0) {
+      const T = 10;
+      const evFold = -2.5;
+      const evCall = eqr(table, 'SB', 'BB', false, hand, 2) * E.equity(heroIds, threeR, SAMPLES, seed + 1) * 20 - T;
+      const ev4 = fourBetEV(table, 'SB', 'BB', heroIds, hand, T, threeR, 0, seed + 2);
+      const f = my3.strategy[hand];
+      evRaise += pr * (f.raise * ev4 + f.call * evCall + f.fold * evFold);
+    }
+    // limp 1
+    const isoR = weightsOf(vsLimp.strategy, 'raise');
+    const pIso = mass(isoR, heroIds) / RANDOM_MASS;
+    const checkR = weightsOf(vsLimp.strategy, 'check');
+    let evLimp = (1 - pIso) * (eqr(table, 'SB', 'BB', false, hand, 1) * E.equity(heroIds, checkR, SAMPLES, seed + 3) * 2 - 1);
+    if (pIso > 0) {
+      const evFoldI = -1;
+      const evCallI = eqr(table, 'SB', 'BB', false, hand, 1) * E.equity(heroIds, isoR, SAMPLES, seed + 4) * 8 - 4;
+      // re-raise to 12: BB folds ~50%, calls ~40%, jams ~10%
+      const ev3I = 0.5 * 4 + 0.4 * (eqr(table, 'SB', 'BB', true, hand, 2) * E.equity(heroIds, isoR, SAMPLES, seed + 5) * 24 - 12) + 0.1 * (-12);
+      const f = iso.strategy[hand];
+      evLimp += pIso * (f.raise * ev3I + f.call * evCallI + f.fold * evFoldI);
+    }
+    return { raise: evRaise, limp: evLimp, fold: -0.5 };
+  }
+
+  /* Heads-up SB, having limped, facing the BB's raise to 4bb. */
+  function evHUIso(spot, heroIds, hand) {
+    const table = 'hu', seed = seedOf(spot.id + hand);
+    const vsLimp = findSpot(table, 'vsLimp', 'BB', 'SB');
+    const isoR = weightsOf(vsLimp.strategy, 'raise');
+    const evCall = eqr(table, 'SB', 'BB', false, hand, 1) * E.equity(heroIds, isoR, SAMPLES, seed) * 8 - 4;
+    const evRaise = 0.5 * 4 + 0.4 * (eqr(table, 'SB', 'BB', true, hand, 2) * E.equity(heroIds, isoR, SAMPLES, seed + 1) * 24 - 12) + 0.1 * Math.max(-12, E.equity(heroIds, scale(isoR, JAM_VS_4BET), SAMPLES, seed + 2) * 200 - 100);
+    return { raise: evRaise, call: evCall, fold: -1 };
   }
 
   const cache = {};
@@ -192,7 +245,9 @@
     if (cache[key]) return cache[key];
     const heroIds = [E.cid(cards[0]), E.cid(cards[1])];
     let evs;
-    if (spot.type === 'rfi') evs = evRFI(spot, heroIds, hand);
+    if (spot.table === 'hu' && spot.type === 'rfi') evs = evHUOpen(spot, heroIds, hand);
+    else if (spot.table === 'hu' && spot.type === 'vsLimp' && spot.hero === 'SB') evs = evHUIso(spot, heroIds, hand);
+    else if (spot.type === 'rfi') evs = evRFI(spot, heroIds, hand);
     else if (spot.type === 'vsOpen') evs = evVsOpen(spot, heroIds, hand);
     else if (spot.type === 'vs3bet') evs = evVs3bet(spot, heroIds, hand);
     else evs = evVsLimp(spot, heroIds, hand);

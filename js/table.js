@@ -73,7 +73,8 @@
       }
 
       g.appendChild(el('rect', { x: sx - pw / 2, y: sy - ph / 2, width: pw, height: ph, rx: 10, fill: st.fill, stroke: st.stroke, 'stroke-width': isHero ? 2.5 : 1.5, opacity: seat.status === 'fold' ? 0.55 : 1 }));
-      g.appendChild(el('text', { x: sx, y: sy - 4, 'text-anchor': 'middle', 'font-size': 14, 'font-weight': '700', fill: seat.status === 'fold' ? '#6b7280' : (isHero ? '#f5c542' : '#e8eaf0') }, pos + (isHero ? ' (you)' : '')));
+      const posLabel = (o.labels && o.labels[pos]) || pos;
+      g.appendChild(el('text', { x: sx, y: sy - 4, 'text-anchor': 'middle', 'font-size': 14, 'font-weight': '700', fill: seat.status === 'fold' ? '#6b7280' : (isHero ? '#f5c542' : '#e8eaf0') }, posLabel + (isHero ? ' (you)' : '')));
       const stack = 100 - seat.bet;
       g.appendChild(el('text', { x: sx, y: sy + 14, 'text-anchor': 'middle', 'font-size': 12, fill: seat.status === 'fold' ? '#5b6270' : '#b8c0cf' }, seat.status === 'fold' ? 'Fold' : (+stack.toFixed(1)) + ' bb'));
 
@@ -85,7 +86,7 @@
         g.appendChild(el('circle', { cx: bx, cy: by, r: 8, fill: chipCol, stroke: '#111', 'stroke-width': 1.5 }));
         g.appendChild(el('circle', { cx: bx, cy: by, r: 4, fill: 'none', stroke: '#fff', 'stroke-width': 1, opacity: 0.7 }));
         let label = seat.label || '';
-        if (isHero && seat.status === 'hero' && seat.bet > 1) label = 'Raise ' + seat.bet;
+        if (isHero && seat.status === 'hero' && seat.bet > 1 && !seat.label.startsWith('Raise') && !seat.label.startsWith('Limp')) label = 'Raise ' + seat.bet;
         if (!label) label = String(seat.bet);
         let tx = bx, ty = by + 4, anchor = 'middle';
         if (isHero) { tx = bx + 13; anchor = 'start'; }
@@ -96,7 +97,7 @@
       }
 
       // dealer button
-      if (pos === 'BTN') {
+      if (pos === (o.dealer || 'BTN')) {
         const dx = cx + 245 * Math.cos(ang - 0.28), dy = cy + 112 * Math.sin(ang - 0.28);
         g.appendChild(el('circle', { cx: dx, cy: dy, r: 10, fill: '#f8f8f8', stroke: '#333', 'stroke-width': 1.5 }));
         g.appendChild(el('text', { x: dx, y: dy + 4, 'text-anchor': 'middle', 'font-size': 11, 'font-weight': '800', fill: '#222' }, 'D'));

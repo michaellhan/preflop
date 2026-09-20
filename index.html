@@ -26,6 +26,7 @@
           <div class="segmented" id="table-select">
             <button data-table="6max">6-max</button>
             <button data-table="9max">9-max</button>
+            <button data-table="hu">HU</button>
           </div>
         </div>
         <div class="group">
@@ -34,7 +35,7 @@
             <label class="check"><input type="checkbox" value="rfi"> Open (RFI)</label>
             <label class="check"><input type="checkbox" value="vsOpen"> Facing an open</label>
             <label class="check"><input type="checkbox" value="vs3bet"> Facing a 3-bet</label>
-            <label class="check"><input type="checkbox" value="vsLimp"> BB vs SB limp</label>
+            <label class="check"><input type="checkbox" value="vsLimp"> Limped pots</label>
           </div>
         </div>
         <div class="group">
@@ -102,6 +103,7 @@
           <div class="segmented" id="chart-table">
             <button data-table="6max">6-max</button>
             <button data-table="9max">9-max</button>
+            <button data-table="hu">HU</button>
           </div>
         </div>
         <div class="group">
@@ -110,7 +112,7 @@
             <button class="chip" data-type="rfi">Open (RFI)</button>
             <button class="chip" data-type="vsOpen">Facing an open</button>
             <button class="chip" data-type="vs3bet">Facing a 3-bet</button>
-            <button class="chip" data-type="vsLimp">BB vs SB limp</button>
+            <button class="chip" data-type="vsLimp">Limped pots</button>
           </div>
         </div>
         <div class="group">
@@ -153,11 +155,13 @@
         <tr><td>3-bet size</td><td>7.5bb in position (3x), 10bb from the SB, 11bb from the BB (10bb vs a 3bb SB open)</td></tr>
         <tr><td>4-bet size</td><td>about 2.25x the 3-bet</td></tr>
         <tr><td>Rake</td><td>Mid-stakes online structure (roughly 5% capped); rake mainly tightens the BB's calls and the smallest pairs/suited connectors from early position</td></tr>
-        <tr><td>Positions</td><td>6-max: UTG, HJ, CO, BTN, SB, BB. 9-max: UTG, UTG+1, UTG+2, LJ, HJ, CO, BTN, SB, BB</td></tr>
+        <tr><td>Positions</td><td>6-max: UTG, HJ, CO, BTN, SB, BB. 9-max: UTG, UTG+1, UTG+2, LJ, HJ, CO, BTN, SB, BB. Heads-up: SB (also the button, in position postflop) and BB</td></tr>
+        <tr><td>Heads-up sizes</td><td>SB opens 2.5bb or limps; BB 3-bets to 10bb, 4-bet ~22bb; BB raises a limp to 4bb, SB re-raises to 12bb</td></tr>
       </table>
 
       <h2>How accurate is it?</h2>
       <p>The ranges are hand-curated to match the published output of modern preflop solvers for this game model (the same family of solutions popularised by GTO Wizard, Simple Preflop, Monker and others). Range sizes, which hands are pure vs mixed, and the shape of each region (suited aces as 3-bet bluffs, suited connectors as calls, etc.) follow the solver consensus; mixed frequencies are rounded to 5-10% steps. They are <b>not</b> exported from any commercial product, so individual borderline hands can differ from a specific solver by a few percentage points, and different rake or sizing assumptions will move the edges of every range. If you train against a solver with different sizes, expect the edges to differ, not the core.</p>
+      <p><b>Heads-up note:</b> heads-up is its own model, not a blind-vs-blind spot from 6-max. The small blind is the button and acts last postflop, so it opens or limps about 80% of hands and the big blind, out of position, defends with more 3-bets. The five heads-up spots (SB open with a limp option, BB vs open, SB vs 3-bet, BB vs limp, SB vs a raise after limping) have their own ranges.</p>
       <p><b>9-max note:</b> a 9-max seat with the same number of players left to act is structurally the same decision as its 6-max counterpart, so LJ/HJ/CO/BTN/SB opens reuse the 6-max strategies and UTG, UTG+1 and UTG+2 have their own tighter opening ranges. When an early-position player <i>responds</i> to an early-position open (e.g. LJ vs UTG), the app uses the tightest 6-max response (HJ vs UTG); these spots are marked in the chart footer.</p>
 
       <div class="two-col">
@@ -189,7 +193,7 @@
       <pre>EV(raise) = P(fold) × pot  +  P(call) × (EQR × equity × final pot − invested)  +  P(re-raise) × EV(vs re-raise)
 EV(call)  = EQR × equity × final pot − invested       (minus a squeeze penalty when players remain behind)
 EV(fold)  = −(blinds or raises already invested)</pre>
-      <p><b>EQR</b> is equity realization: in position about 100%, out of position about 82%, +5% for the last aggressor, scaled by hand type (premium hands realize ~110%, weak offsuit hands ~80-85%, and non-premium hands lose a further 12-20% in 3-bet and 4-bet pots). The villain's fold/call/raise frequencies come from their ranges in this app; how a 3-bettor responds to a 4-bet, and how the SB responds when its limp is raised, are fixed approximations. Checked against the GTO ranges, the model picks the same action as GTO for about 80% of pure opening decisions and roughly 70% of the rest, so treat the numbers as a good ordering (folding AA costs far more than opening 72o) rather than a solver-exact value.</p>
+      <p><b>EQR</b> is equity realization: in position about 100%, out of position about 82%, +5% for the last aggressor, scaled by hand type (premium hands realize ~110%, weak offsuit hands ~80-85%, and non-premium hands lose a further 12-20% in 3-bet and 4-bet pots). The villain's fold/call/raise frequencies come from their ranges in this app; how a 3-bettor responds to a 4-bet, and how the SB responds when its limp is raised, are fixed approximations. Checked against the GTO ranges, the model picks the same action as GTO for about 80% of pure opening decisions and roughly 70% of the rest, so treat the numbers as a good ordering (folding AA costs far more than opening 72o) rather than a solver-exact value. Heads-up estimates are rougher still, because limp lines and very wide ranges stretch the simple model.</p>
       <p>Background reading: <a href="https://help.gtowizard.com/measure-performance/" target="_blank" rel="noopener">GTO Wizard: measuring performance (EV loss)</a>, <a href="https://blog.gtowizard.com/what-is-expected-value-in-poker/" target="_blank" rel="noopener">GTO Wizard: what is expected value</a>, <a href="https://blog.gtowizard.com/equity-realization/" target="_blank" rel="noopener">GTO Wizard: equity realization</a>, <a href="https://www.splitsuit.com/simple-poker-expected-value-formula" target="_blank" rel="noopener">SplitSuit: the EV formula</a>, <a href="https://upswingpoker.com/fold-equity/" target="_blank" rel="noopener">Upswing: fold equity</a>.</p>
 
       <h2>The "why" notes</h2>

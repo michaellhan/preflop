@@ -6,7 +6,8 @@
 
   const TABLES = {
     '6max': { key: '6max', name: '6-max', positions: ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'] },
-    '9max': { key: '9max', name: '9-max (full ring)', positions: ['UTG', 'UTG+1', 'UTG+2', 'LJ', 'HJ', 'CO', 'BTN', 'SB', 'BB'] }
+    '9max': { key: '9max', name: '9-max (full ring)', positions: ['UTG', 'UTG+1', 'UTG+2', 'LJ', 'HJ', 'CO', 'BTN', 'SB', 'BB'] },
+    'hu':   { key: 'hu', name: 'Heads-up', positions: ['SB', 'BB'], dealer: 'SB', labels: { SB: 'SB/BTN' } }
   };
   const POSITION_NAMES = {
     'UTG': 'Under the gun', 'UTG+1': 'UTG+1', 'UTG+2': 'UTG+2', 'LJ': 'Lojack', 'HJ': 'Hijack',
@@ -28,10 +29,10 @@
     rfi:    { key: 'rfi',    name: 'Open (RFI)',        short: 'RFI' },
     vsOpen: { key: 'vsOpen', name: 'Facing an open',    short: 'vs Open' },
     vs3bet: { key: 'vs3bet', name: 'Facing a 3-bet',    short: 'vs 3-Bet' },
-    vsLimp: { key: 'vsLimp', name: 'BB vs SB limp',     short: 'vs Limp' }
+    vsLimp: { key: 'vsLimp', name: 'Limped pot',        short: 'Limp pot' }
   };
 
-  const COLORS = { raise: '#e0524f', raise4: '#b8243c', call: '#4fb35e', fold: '#4a7fc1', check: '#2fa39a' };
+  const COLORS = { raise: '#e0524f', raise4: '#b8243c', call: '#4fb35e', fold: '#4a7fc1', check: '#2fa39a', limp: '#2fa39a' };
 
   const cache = {};
   function strategyFor(spec) {
@@ -195,9 +196,85 @@
     return spots;
   }
 
+  /* Heads-up: the SB is the button and acts last postflop. */
+  function buildHUSpots() {
+    const HU = R.HU, table = 'hu';
+    const spots = [];
+    const openStrat = strategyFor({ actions: ['raise', 'limp', 'fold'], raise: HU.SB_OPEN.raise, limp: HU.SB_OPEN.limp });
+    const raisePrior = {}, limpPrior = {};
+    for (const h of H.ALL_HANDS) { raisePrior[h] = openStrat[h].raise; limpPrior[h] = openStrat[h].limp; }
+    spots.push({
+      id: 'hu:rfi:SB', table, type: 'rfi', hero: 'SB', villain: null,
+      title: 'SB open (heads-up)',
+      description: 'Heads-up: you are the small blind and the button, first to act preflop but in position after the flop.',
+      question: 'Raise to 2.5bb, limp, or fold?',
+      actions: [
+        { key: 'raise', label: 'Raise 2.5bb', color: COLORS.raise },
+        { key: 'limp', label: 'Limp', color: COLORS.limp },
+        { key: 'fold', label: 'Fold', color: COLORS.fold }
+      ],
+      strategy: openStrat, source: 'HU SB_OPEN',
+      seats: { SB: { status: 'hero', bet: 0.5, label: 'SB' }, BB: { status: 'blind', bet: 1, label: 'BB' } }, pot: 1.5
+    });
+    spots.push({
+      id: 'hu:vsOpen:BB:SB', table, type: 'vsOpen', hero: 'BB', villain: 'SB',
+      title: 'BB vs SB open (heads-up)',
+      description: 'Heads-up: the small blind (button) raises to 2.5bb. You are the big blind, out of position for the rest of the hand.',
+      question: '3-bet to 10bb, call, or fold?',
+      actions: [
+        { key: 'raise', label: '3-Bet 10bb', color: COLORS.raise },
+        { key: 'call', label: 'Call', color: COLORS.call },
+        { key: 'fold', label: 'Fold', color: COLORS.fold }
+      ],
+      strategy: strategyFor({ actions: ['raise', 'call', 'fold'], raise: HU.BB_vs_SB.raise, call: HU.BB_vs_SB.call }), source: 'HU BB_vs_SB',
+      seats: { SB: { status: 'raise', bet: 2.5, label: 'Raise 2.5' }, BB: { status: 'hero', bet: 1, label: 'BB' } }, pot: 3.5
+    });
+    spots.push({
+      id: 'hu:vs3bet:SB:BB', table, type: 'vs3bet', hero: 'SB', villain: 'BB',
+      title: 'SB vs BB 3-bet (heads-up)',
+      description: 'Heads-up: you raise to 2.5bb from the small blind (button) and the big blind 3-bets to 10bb.',
+      question: '4-bet to ~22bb, call, or fold?',
+      actions: [
+        { key: 'raise', label: '4-Bet 22bb', color: COLORS.raise4 },
+        { key: 'call', label: 'Call', color: COLORS.call },
+        { key: 'fold', label: 'Fold', color: COLORS.fold }
+      ],
+      strategy: strategyFor({ actions: ['raise', 'call', 'fold'], raise: HU.SB_vs_BB_3BET.raise, call: HU.SB_vs_BB_3BET.call }), source: 'HU SB_vs_BB_3BET',
+      prior: raisePrior,
+      seats: { SB: { status: 'hero', bet: 2.5, label: 'Raise 2.5' }, BB: { status: '3bet', bet: 10, label: '3-Bet 10' } }, pot: 12.5
+    });
+    spots.push({
+      id: 'hu:vsLimp:BB:SB', table, type: 'vsLimp', hero: 'BB', villain: 'SB',
+      title: 'BB vs SB limp (heads-up)',
+      description: 'Heads-up: the small blind (button) limps. You are the big blind with the option.',
+      question: 'Raise to 4bb or check?',
+      actions: [
+        { key: 'raise', label: 'Raise 4bb', color: COLORS.raise },
+        { key: 'check', label: 'Check', color: COLORS.check }
+      ],
+      strategy: strategyFor({ actions: ['raise', 'check'], raise: HU.BB_vs_LIMP.raise }), source: 'HU BB_vs_LIMP',
+      seats: { SB: { status: 'limp', bet: 1, label: 'Limp 1' }, BB: { status: 'hero', bet: 1, label: 'BB' } }, pot: 2
+    });
+    spots.push({
+      id: 'hu:vsLimp:SB:BB', table, type: 'vsLimp', hero: 'SB', villain: 'BB',
+      title: 'SB vs BB raise after limp (heads-up)',
+      description: 'Heads-up: you limp from the small blind (button) and the big blind raises to 4bb.',
+      question: '3-bet to 12bb, call, or fold?',
+      actions: [
+        { key: 'raise', label: '3-Bet 12bb', color: COLORS.raise },
+        { key: 'call', label: 'Call', color: COLORS.call },
+        { key: 'fold', label: 'Fold', color: COLORS.fold }
+      ],
+      strategy: strategyFor({ actions: ['raise', 'call', 'fold'], raise: HU.SB_vs_ISO.raise, call: HU.SB_vs_ISO.call }), source: 'HU SB_vs_ISO',
+      prior: limpPrior,
+      seats: { SB: { status: 'hero', bet: 1, label: 'Limp 1' }, BB: { status: 'raise', bet: 4, label: 'Raise 4' } }, pot: 5
+    });
+    return spots;
+  }
+
   const spotCache = {};
   function getSpots(tableKey) {
-    if (!spotCache[tableKey]) spotCache[tableKey] = buildSpots(tableKey);
+    if (!spotCache[tableKey]) spotCache[tableKey] = tableKey === 'hu' ? buildHUSpots() : buildSpots(tableKey);
     return spotCache[tableKey];
   }
 

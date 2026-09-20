@@ -8,7 +8,7 @@ const ctx = vm.createContext({ console });
 for (const f of ['hands.js', 'ranges.js', 'spots.js']) vm.runInContext(fs.readFileSync(path.join(dir, f), 'utf8'), ctx, { filename: f });
 const { Hands, Spots } = ctx;
 let failed = false;
-for (const table of ['6max', '9max']) {
+for (const table of ['6max', '9max', 'hu']) {
   let spots;
   try { spots = Spots.getSpots(table); } catch (e) { console.error('ERROR building', table, e.message); failed = true; continue; }
   console.log('\n== ' + table + ' (' + spots.length + ' spots) ==');
@@ -16,9 +16,9 @@ for (const table of ['6max', '9max']) {
   for (const s of spots) {
     const keys = s.actions.map(a => a.key);
     const sum = Hands.strategySummary(s.strategy, keys);
-    const r = sum.raise ? sum.raise.pct : 0, c = sum.call ? sum.call.pct : 0;
+    const r = sum.raise ? sum.raise.pct : 0, c = sum.call ? sum.call.pct : (sum.limp ? sum.limp.pct : 0);
     const f = sum.fold ? sum.fold.pct : (sum.check ? sum.check.pct : 0);
-    let extra = sum.check ? ' (fold col = check)' : '';
+    let extra = sum.check ? ' (fold col = check)' : (sum.limp ? ' (call col = limp)' : '');
     if (s.prior) {
       let tot = 0, cont = 0, four = 0;
       for (const h of Hands.ALL_HANDS) { const w = Hands.combos(h) * s.prior[h]; tot += w; cont += w * (s.strategy[h].raise + s.strategy[h].call); four += w * s.strategy[h].raise; }

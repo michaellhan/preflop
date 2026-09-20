@@ -260,9 +260,43 @@
     return null;
   }
 
+  /* Heads-up spots have their own short reasons. */
+  function huReason(spot, c, hand, primary) {
+    const strong = c.cat === 'premium-pair' || c.cat === 'strong-pair' || c.cat === 'AK' || c.cat === 'AQ' || c.cat === 'big-suited-ace' || c.cat === 'suited-broadway' || c.cat === 'medium-pair';
+    const playable = c.suited || c.pair || c.hi === 14 || (c.hi >= 10 && c.lo >= 8);
+    if (spot.type === 'rfi') {
+      if (primary === 'raise') return strong ? 'With position and only one opponent the SB raises most hands; a ' + CAT_NAME[c.cat] + ' is a clear value raise.' : 'Heads-up the SB has position and a single opponent, so it raises around half of all hands; this one has enough equity and playability to raise for value and fold equity.';
+      if (primary === 'limp') return 'Too weak to raise (it gets 3-bet or called by better hands too often) but too playable to fold with position: limping sees a cheap flop and keeps the BB\'s 3-bet bluffs out.';
+      return 'Even heads-up, the weakest offsuit hands lose money in every line: no high cards, no suit, poor connectivity.';
+    }
+    if (spot.type === 'vsOpen') {
+      if (primary === 'raise') return strong ? 'The BB 3-bets for value: out of position it prefers to build the pot now against a ~55% raising range rather than play a big range disadvantage postflop.' : 'The BB 3-bets this hand as a bluff: it has blockers or nut potential, folds cheaply to a 4-bet, and out of position it would realize little equity as a call.';
+      if (primary === 'call') return playable ? 'Against a ~55% opening range the BB closes the action at a good price; this hand has enough equity and playability to call even out of position.' : 'The price is good enough to call against such a wide range, though the hand must play carefully out of position.';
+      return 'Against even a wide heads-up open, this hand realizes too little equity out of position to pay 1.5bb more.';
+    }
+    if (spot.type === 'vs3bet') {
+      if (primary === 'raise') return strong ? 'A 4-bet for value: the BB 3-bets a wide, bluff-heavy range heads-up, so premiums want to grow the pot.' : 'A 4-bet bluff: it blocks the BB\'s value hands, folds cheaply to a jam, and the BB\'s wide 3-bet range folds often.';
+      if (primary === 'call') return 'With position the SB calls a wide, polarized 3-bet range: this hand beats the bluffs and realizes its equity well in position.';
+      return 'Not enough equity against the value part of the 3-bet range to call 7.5bb more, and not a good 4-bet bluff candidate.';
+    }
+    if (spot.hero === 'BB') {
+      if (primary === 'raise') return 'The SB\'s limping range is capped, so the BB raises about half its hands to take the pot or build one with a hand that has equity and showdown value.';
+      return 'A weak hand takes the free flop: raising would get called by better hands too often.';
+    }
+    if (primary === 'raise') return 'A limp-3-bet bluff with a hand that has some nut potential: the BB\'s isolation range folds often enough.';
+    if (primary === 'call') return 'With position and a 2:1 price, the limped hand calls the BB\'s raise and plays a small pot in position.';
+    return 'The weakest limps give up against a raise: too little equity even at 2:1 with position.';
+  }
+
   function explain(spot, hand, freqs) {
     const c = classify(hand);
     const primary = primaryOf(freqs);
+    if (spot.table === 'hu') {
+      const played = spot.actions.filter(a => freqs[a.key] > 0);
+      return { what: '', why: huReason(spot, c, hand, primary), mix: played.length > 1 ? played.map(a => a.label.replace(/ [\d.~]+bb$/, '') + ' ' + pct(freqs[a.key])).join(' / ') : null,
+        compare: spot.type === 'rfi' ? 'Heads-up the SB is the button: it opens or limps about 80% of hands, far more than the 44% it opens at a full table.' : (spot.type === 'vsOpen' ? 'The BB defends about two-thirds of hands here, and 3-bets more than at 6-max because it is out of position.' : null),
+        cat: c.cat, catName: CAT_NAME[c.cat] };
+    }
     const played = spot.actions.filter(a => freqs[a.key] > 0);
     const label = k => { const a = spot.actions.find(x => x.key === k); return a ? a.label.replace(/ [\d.~]+bb$/, '') : k; };
     const what = hand + ' (' + CAT_NAME[c.cat] + ') ' + WHAT[c.cat] + '.';

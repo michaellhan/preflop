@@ -19,6 +19,7 @@
   });
   let settings = loadJSON(SETTINGS_KEY, defaults());
   if (!settings.types || !settings.positions) settings = defaults();
+  if (!('hu' in settings.positions)) settings.positions.hu = null;
   let stats = loadJSON(STATS_KEY, freshStats());
   let current = null; // { spot, hand, cards, answered, chosen }
   let charts = { table: '6max', type: 'rfi', hero: 'BTN', villain: null };
@@ -146,7 +147,7 @@
   function renderHand() {
     const { spot, hand, cards } = current;
     const T6 = S.TABLES[spot.table];
-    T.renderTable($('#table-svg'), { positions: T6.positions, hero: spot.hero, seats: spot.seats, pot: spot.pot, heroCards: cards });
+    T.renderTable($('#table-svg'), { positions: T6.positions, hero: spot.hero, seats: spot.seats, pot: spot.pot, heroCards: cards, dealer: T6.dealer, labels: T6.labels });
     $('#situation').innerHTML =
       '<span class="pill">' + T6.name + '</span><span class="pill">100bb</span><span class="pill type">' + S.TYPE_META[spot.type].name + '</span>' + (current.review ? '<span class="pill review">Review · not scored</span>' : '') +
       '<div class="sit-text">' + spot.description + ' <strong>' + spot.question + '</strong></div>';
@@ -334,7 +335,7 @@
       const d = document.createElement('div');
       const reviewable = !!spotOfMistake(m);
       d.className = 'mistake ' + m.level + (reviewable ? ' clickable' : '');
-      d.innerHTML = '<b>' + m.hand + '</b> ' + m.title + ' <span class="muted">' + (m.table === '9max' ? '9-max' : '6-max') + '</span>' + (m.loss ? ' <span class="loss">−' + m.loss.toFixed(2) + ' bb</span>' : '') + '<br><span class="muted">You: ' + m.chosen + ' · GTO: ' + m.gto + '</span>';
+      d.innerHTML = '<b>' + m.hand + '</b> ' + m.title + ' <span class="muted">' + (m.table === '9max' ? '9-max' : m.table === 'hu' ? 'HU' : '6-max') + '</span>' + (m.loss ? ' <span class="loss">−' + m.loss.toFixed(2) + ' bb</span>' : '') + '<br><span class="muted">You: ' + m.chosen + ' · GTO: ' + m.gto + '</span>';
       if (reviewable) { d.title = 'Replay this spot'; d.addEventListener('click', () => reviewMistake(m)); }
       mis.appendChild(d);
     }
@@ -375,7 +376,7 @@
         vw.appendChild(b);
       }
     } else charts.villain = null;
-    $('#chart-villain-label').textContent = charts.type === 'vs3bet' ? '3-bettor' : charts.type === 'vsLimp' ? 'Limper' : 'Opener';
+    $('#chart-villain-label').textContent = charts.type === 'vs3bet' ? '3-bettor' : charts.type === 'vsLimp' ? 'Opponent' : 'Opener';
   }
   function renderCharts() {
     renderChartControls();
@@ -398,7 +399,7 @@
     G.renderGrid($('#chart-grid'), spot.strategy, spot.actions, { prior: spot.prior, onHover: showHand });
     G.renderLegend($('#chart-legend'), spot.actions);
     G.renderSummary($('#chart-summary'), spot.strategy, spot.actions, spot.prior);
-    T.renderTable($('#chart-table-svg'), { positions: T6.positions, hero: spot.hero, seats: spot.seats, pot: spot.pot, heroCards: null });
+    T.renderTable($('#chart-table-svg'), { positions: T6.positions, hero: spot.hero, seats: spot.seats, pot: spot.pot, heroCards: null, dealer: T6.dealer, labels: T6.labels });
     info.innerHTML = '<div class="muted">Hover a hand for its frequencies and the reasoning.</div>';
     $('#chart-why').classList.add('hidden');
     const src = $('#chart-source');
@@ -413,7 +414,7 @@
     if (tbl.dataset.done) return;
     tbl.dataset.done = '1';
     let html = '<tr><th>Table</th><th>Position</th><th>Open %</th><th>Combos</th></tr>';
-    for (const tk of ['6max', '9max']) {
+    for (const tk of ['6max', '9max', 'hu']) {
       for (const s of S.getSpots(tk).filter(x => x.type === 'rfi')) {
         const sum = G.summarize(s.strategy, s.actions).rows[0];
         html += '<tr><td>' + S.TABLES[tk].name + '</td><td>' + s.hero + '</td><td>' + sum.pct.toFixed(1) + '%</td><td>' + sum.combos.toFixed(0) + '</td></tr>';
