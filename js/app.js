@@ -134,6 +134,10 @@
     if (!spot) return;
     current = { spot, hand: m.hand, cards: m.cards || H.dealCards(m.hand), answered: false, chosen: null, review: true };
     renderHand();
+    // replay the original decision so the result is shown immediately
+    let key = m.chosenKey;
+    if (!key && m.chosen) { const a = spot.actions.find(x => labelOf(spot, x.key) === m.chosen); if (a) key = a.key; }
+    if (key) answer(key);
     window.scrollTo(0, 0);
   }
   function renderHand() {
@@ -199,7 +203,7 @@
     const bt = stats.byType[spot.type] || (stats.byType[spot.type] = { total: 0, points: 0 });
     bt.total++; bt.points += pts;
     if (v.level !== 'correct') {
-      stats.mistakes.unshift({ title: spot.title, table: spot.table, spotId: spot.id, hand, cards: current.cards, chosen: labelOf(spot, key), gto: gtoLine(spot, freqs), level: v.level, loss });
+      stats.mistakes.unshift({ title: spot.title, table: spot.table, spotId: spot.id, hand, cards: current.cards, chosenKey: key, chosen: labelOf(spot, key), gto: gtoLine(spot, freqs), level: v.level, loss });
       stats.mistakes = stats.mistakes.slice(0, 15);
     }
     saveJSON(STATS_KEY, stats);
