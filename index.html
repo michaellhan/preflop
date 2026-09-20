@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Preflop Lab — GTO Preflop Trainer</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="#" id="brand-link" title="Back to the trainer"><span class="logo">&#9824;</span><span class="brand-name">Preflop Lab</span><small>GTO preflop trainer · 100bb cash</small></a>
+  <nav class="tabs">
+    <button class="tab active" data-view="trainer">Trainer</button>
+    <button class="tab" data-view="ranges">Range Charts</button>
+    <button class="tab" data-view="about">About the Data</button>
+  </nav>
+</header>
+
+<main>
+  <!-- ================= TRAINER ================= -->
+  <section id="view-trainer" class="view active">
+    <div class="trainer">
+      <aside class="panel settings-panel">
+        <div class="group">
+          <h3>Table size</h3>
+          <div class="segmented" id="table-select">
+            <button data-table="6max">6-max</button>
+            <button data-table="9max">9-max</button>
+          </div>
+        </div>
+        <div class="group">
+          <h3>Scenarios</h3>
+          <div id="type-select">
+            <label class="check"><input type="checkbox" value="rfi"> Open (raise first in)</label>
+            <label class="check"><input type="checkbox" value="vsOpen"> Facing an open (3-bet / call / fold)</label>
+            <label class="check"><input type="checkbox" value="vs3bet"> Facing a 3-bet (4-bet / call / fold)</label>
+            <label class="check"><input type="checkbox" value="vsLimp"> BB vs SB limp (raise / check)</label>
+          </div>
+        </div>
+        <div class="group">
+          <h3>Your position</h3>
+          <div class="chips" id="pos-select"></div>
+        </div>
+        <div class="group">
+          <h3>Dealing</h3>
+          <div id="dealing-select">
+            <label class="check"><input type="radio" name="dealing" value="weighted"> Focus on playable hands</label>
+            <label class="check"><input type="radio" name="dealing" value="uniform"> Realistic (random deal)</label>
+          </div>
+          <div class="small-note">"Focus" deals pure-fold hands 70% less often so you see more real decisions.</div>
+        </div>
+        <div class="group">
+          <label class="check"><input type="checkbox" id="show-range"> Show GTO range after each answer</label>
+          <label class="check"><input type="checkbox" id="auto-next"> Auto-advance 1.5s after a correct answer</label>
+          <div class="small-note" id="spot-count"></div>
+        </div>
+        <div class="group small-note">Keys: <b>1 / 2 / 3</b> to act · <b>Space</b> for next hand</div>
+      </aside>
+
+      <div class="trainer-main">
+        <div id="situation"></div>
+        <div class="table-wrap"><svg id="table-svg" role="img" aria-label="Poker table"></svg></div>
+        <div id="hero-hand"></div>
+        <div id="actions" class="action-row">
+          <div id="action-buttons"></div>
+          <button id="next-btn" class="next-btn" disabled>Next hand <span class="key">space</span></button>
+        </div>
+        <div id="feedback" class="panel hidden"></div>
+        <div id="reveal" class="panel hidden">
+          <h3 id="reveal-title"></h3>
+          <div class="reveal-body">
+            <div>
+              <div id="reveal-grid"></div>
+              <div id="reveal-legend"></div>
+            </div>
+            <div id="reveal-summary"></div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="panel stats-panel">
+        <h3>Session stats</h3>
+        <div class="stat-big">
+          <div class="stat-box"><div class="v" id="stat-acc">–</div><div class="l">Accuracy</div></div>
+          <div class="stat-box"><div class="v" id="stat-hands">0</div><div class="l">Hands</div></div>
+        </div>
+        <div class="small-note" id="stat-breakdown"></div>
+        <div class="small-note">Streak: <span id="stat-streak">0</span></div>
+        <div class="group" style="margin-top:14px"><h3>By position</h3><div id="stat-pos"></div></div>
+        <div class="group"><h3>By scenario</h3><div id="stat-type"></div></div>
+        <div class="group"><h3>Recent misses</h3><div id="stat-mistakes"></div></div>
+        <button id="reset-stats" class="link-btn">Reset stats</button>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ================= RANGE CHARTS ================= -->
+  <section id="view-ranges" class="view">
+    <div class="charts">
+      <aside class="panel">
+        <div class="group">
+          <h3>Table size</h3>
+          <div class="segmented" id="chart-table">
+            <button data-table="6max">6-max</button>
+            <button data-table="9max">9-max</button>
+          </div>
+        </div>
+        <div class="group">
+          <h3>Scenario</h3>
+          <div class="chips" id="chart-type">
+            <button class="chip" data-type="rfi">Open (RFI)</button>
+            <button class="chip" data-type="vsOpen">Facing an open</button>
+            <button class="chip" data-type="vs3bet">Facing a 3-bet</button>
+            <button class="chip" data-type="vsLimp">BB vs SB limp</button>
+          </div>
+        </div>
+        <div class="group">
+          <h3>Your position</h3>
+          <div class="chips" id="chart-hero"></div>
+        </div>
+        <div class="group" id="chart-villain-wrap">
+          <h3 id="chart-villain-label">Opener</h3>
+          <div class="chips" id="chart-villain"></div>
+        </div>
+        <div class="small-note">Each cell is split left-to-right by action frequency. Hover a cell for exact numbers.</div>
+      </aside>
+
+      <div>
+        <div class="chart-head"><h2 id="chart-title"></h2><p id="chart-desc"></p></div>
+        <div id="chart-grid"></div>
+        <div id="chart-legend"></div>
+      </div>
+
+      <aside class="panel chart-side">
+        <div id="chart-hand-info"></div>
+        <div class="group" style="margin-top:14px"><h3>Range summary</h3><div id="chart-summary"></div></div>
+        <svg id="chart-table-svg" role="img" aria-label="Table position"></svg>
+        <div id="chart-source"></div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ================= ABOUT ================= -->
+  <section id="view-about" class="view">
+    <div class="about">
+      <h1>About the data</h1>
+      <p>Preflop Lab trains you against a fixed <b>100bb, no-ante cash game</b> equilibrium model. Every spot is a single decision: everyone before you has folded or made exactly one action, and you choose between fold, call/check and raise. The strategy for each of the 169 starting hands is stored as action frequencies (a hand can be a pure action or a mix such as "3-bet 40% / call 60%").</p>
+
+      <h2>Game model</h2>
+      <table>
+        <tr><th>Parameter</th><th>Value</th></tr>
+        <tr><td>Stack depth</td><td>100 big blinds effective, no ante</td></tr>
+        <tr><td>Open-raise size</td><td>2.5bb from every position, 3bb from the small blind (raise-or-fold SB)</td></tr>
+        <tr><td>3-bet size</td><td>7.5bb in position (3x), 10bb from the SB, 11bb from the BB (10bb vs a 3bb SB open)</td></tr>
+        <tr><td>4-bet size</td><td>about 2.25x the 3-bet</td></tr>
+        <tr><td>Rake</td><td>Mid-stakes online structure (roughly 5% capped); rake mainly tightens the BB's calls and the smallest pairs/suited connectors from early position</td></tr>
+        <tr><td>Positions</td><td>6-max: UTG, HJ, CO, BTN, SB, BB. 9-max: UTG, UTG+1, UTG+2, LJ, HJ, CO, BTN, SB, BB</td></tr>
+      </table>
+
+      <h2>How accurate is it?</h2>
+      <p>The ranges are hand-curated to match the published output of modern preflop solvers for this game model (the same family of solutions popularised by GTO Wizard, Simple Preflop, Monker and others). Range sizes, which hands are pure vs mixed, and the shape of each region (suited aces as 3-bet bluffs, suited connectors as calls, etc.) follow the solver consensus; mixed frequencies are rounded to 5-10% steps. They are <b>not</b> exported from any commercial product, so individual borderline hands can differ from a specific solver by a few percentage points, and different rake or sizing assumptions will move the edges of every range. If you train against a solver with different sizes, expect the edges to differ, not the core.</p>
+      <p><b>9-max note:</b> a 9-max seat with the same number of players left to act is structurally the same decision as its 6-max counterpart, so LJ/HJ/CO/BTN/SB opens reuse the 6-max strategies and UTG, UTG+1 and UTG+2 have their own tighter opening ranges. When an early-position player <i>responds</i> to an early-position open (e.g. LJ vs UTG), the app uses the tightest 6-max response (HJ vs UTG); these spots are marked in the chart footer.</p>
+
+      <div class="two-col">
+        <div>
+          <h2>Opening ranges</h2>
+          <table id="about-rfi"></table>
+        </div>
+        <div>
+          <h2>6-max defence vs an open</h2>
+          <table id="about-defend"></table>
+        </div>
+      </div>
+
+      <h2>How answers are scored</h2>
+      <ul>
+        <li><b>Correct</b>: you picked the most frequent GTO action, or any action GTO takes at least 50% of the time. Worth 1 point.</li>
+        <li><b>Acceptable (mixed)</b>: GTO takes your action sometimes, but another action is the main line. Worth the action's frequency (e.g. 0.3 points for a 30% action).</li>
+        <li><b>Mistake</b>: GTO never takes your action with that hand. 0 points.</li>
+      </ul>
+      <p>Accuracy is points divided by hands. Stats are kept in your browser only.</p>
+
+      <h2>About "check"</h2>
+      <p>Preflop, checking is only possible in the big blind when nobody has raised. The SB-limp scenario is the one place it shows up in a raise-or-fold model, so it is included as an optional scenario. Everywhere else your options are fold, call or raise.</p>
+
+      <h2>Keyboard</h2>
+      <p><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> pick the first, second, third action; <kbd>Space</kbd> or <kbd>Enter</kbd> for the next hand.</p>
+    </div>
+  </section>
+</main>
+
+<script src="js/hands.js"></script>
+<script src="js/ranges.js"></script>
+<script src="js/spots.js"></script>
+<script src="js/table.js"></script>
+<script src="js/grid.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

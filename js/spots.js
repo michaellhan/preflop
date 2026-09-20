@@ -1,0 +1,205 @@
+/* spots.js — builds every trainable spot for a table size from the range data. */
+(function (root) {
+  'use strict';
+  const H = root.Hands;
+  const R = root.RANGES;
+
+  const TABLES = {
+    '6max': { key: '6max', name: '6-max', positions: ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'] },
+    '9max': { key: '9max', name: '9-max (full ring)', positions: ['UTG', 'UTG+1', 'UTG+2', 'LJ', 'HJ', 'CO', 'BTN', 'SB', 'BB'] }
+  };
+  const POSITION_NAMES = {
+    'UTG': 'Under the gun', 'UTG+1': 'UTG+1', 'UTG+2': 'UTG+2', 'LJ': 'Lojack', 'HJ': 'Hijack',
+    'CO': 'Cutoff', 'BTN': 'Button', 'SB': 'Small blind', 'BB': 'Big blind'
+  };
+  // 9-max early positions share the 6-max UTG strategies (see About page).
+  function classOf(pos) {
+    return (pos === 'UTG+1' || pos === 'UTG+2' || pos === 'LJ') ? 'UTG' : pos;
+  }
+  function openSize(pos) { return pos === 'SB' ? 3 : 2.5; }
+  function threeBetSize(threeBettor, openerPos) {
+    if (threeBettor === 'BB') return openerPos === 'SB' ? 10 : 11;
+    if (threeBettor === 'SB') return 10;
+    return 7.5;
+  }
+  function fourBetSize(threeBet) { return Math.round(threeBet * 2.25); }
+
+  const TYPE_META = {
+    rfi:    { key: 'rfi',    name: 'Open (RFI)',        short: 'RFI' },
+    vsOpen: { key: 'vsOpen', name: 'Facing an open',    short: 'vs Open' },
+    vs3bet: { key: 'vs3bet', name: 'Facing a 3-bet',    short: 'vs 3-Bet' },
+    vsLimp: { key: 'vsLimp', name: 'BB vs SB limp',     short: 'vs Limp' }
+  };
+
+  const COLORS = { raise: '#e0524f', raise4: '#b8243c', call: '#4fb35e', fold: '#4a7fc1', check: '#2fa39a' };
+
+  const cache = {};
+  function strategyFor(spec) {
+    const key = JSON.stringify(spec);
+    if (!cache[key]) cache[key] = H.buildStrategy(spec);
+    return cache[key];
+  }
+
+  function lookupVsOpen(heroClass, villainClass) {
+    let key = heroClass + '_vs_' + villainClass;
+    if (heroClass === 'UTG' && villainClass === 'UTG') key = 'HJ_vs_UTG';
+    return { key, data: R.VS_OPEN[key] };
+  }
+  function lookupVs3bet(openerClass, threeBettorClass) {
+    let key = openerClass + '_vs_' + threeBettorClass;
+    if (openerClass === 'UTG' && threeBettorClass === 'UTG') key = 'UTG_vs_HJ';
+    return { key, data: R.VS_3BET[key] };
+  }
+
+  /* seat status: 'blind' (posted, not yet acted), 'fold', 'raise', '3bet', 'limp', 'hero', 'waiting' */
+  function baseSeats(positions) {
+    const seats = {};
+    for (const p of positions) seats[p] = { status: 'waiting', bet: 0, label: '' };
+    seats.SB = { status: 'blind', bet: 0.5, label: 'SB' };
+    seats.BB = { status: 'blind', bet: 1, label: 'BB' };
+    return seats;
+  }
+
+  function buildSpots(tableKey) {
+    const T = TABLES[tableKey];
+    const P = T.positions;
+    const spots = [];
+    const rfiData = tableKey === '6max' ? R.RFI6 : R.RFI9;
+
+    // ---- RFI ----
+    for (let i = 0; i < P.length; i++) {
+      const hero = P[i];
+      if (hero === 'BB') continue;
+      const size = openSize(hero);
+      const seats = baseSeats(P);
+      for (let k = 0; k < i; k++) seats[P[k]] = { status: 'fold', bet: 0, label: 'Fold' };
+      seats[hero] = { status: 'hero', bet: hero === 'SB' ? 0.5 : 0, label: hero === 'SB' ? 'SB' : '' };
+      const foldedBefore = i;
+      spots.push({
+        id: tableKey + ':rfi:' + hero,
+        table: tableKey, type: 'rfi', hero, villain: null,
+        title: hero + ' open',
+        description: (foldedBefore === 0 ? 'You are first to act' : 'Everyone folds to you') + ' in the ' + POSITION_NAMES[hero] + '.',
+        question: 'Raise to ' + size + 'bb or fold?',
+        actions: [
+          { key: 'raise', label: 'Raise ' + size + 'bb', color: COLORS.raise },
+          { key: 'fold', label: 'Fold', color: COLORS.fold }
+        ],
+        strategy: strategyFor({ actions: ['raise', 'fold'], raise: rfiData[hero] }),
+        source: 'RFI ' + tableKey + ' ' + hero,
+        seats, pot: 1.5
+      });
+    }
+
+    // ---- Facing an open ----
+    for (let v = 0; v < P.length; v++) {
+      const villain = P[v];
+      if (villain === 'BB') continue;
+      for (let h = v + 1; h < P.length; h++) {
+        const hero = P[h];
+        const look = lookupVsOpen(classOf(hero), classOf(villain));
+        if (!look.data) continue;
+        const open = openSize(villain);
+        const tb = threeBetSize(hero, villain);
+        const seats = baseSeats(P);
+        for (let k = 0; k < v; k++) seats[P[k]] = { status: 'fold', bet: 0, label: 'Fold' };
+        seats[villain] = { status: 'raise', bet: open, label: 'Raise ' + open };
+        for (let k = v + 1; k < h; k++) seats[P[k]] = { status: 'fold', bet: 0, label: 'Fold' };
+        seats[hero] = { status: 'hero', bet: hero === 'SB' ? 0.5 : hero === 'BB' ? 1 : 0, label: hero === 'SB' ? 'SB' : hero === 'BB' ? 'BB' : '' };
+        let pot = open;
+        if (villain !== 'SB' && hero !== 'SB') pot += 0.5;
+        if (hero !== 'BB') pot += 1;
+        if (hero === 'SB') pot += 0.5;
+        if (hero === 'BB') pot += 1;
+        spots.push({
+          id: tableKey + ':vsOpen:' + hero + ':' + villain,
+          table: tableKey, type: 'vsOpen', hero, villain,
+          title: hero + ' vs ' + villain + ' open',
+          description: POSITION_NAMES[villain] + ' raises to ' + open + 'bb' + (h - v > 1 ? ', everyone else folds to you' : '') + ' in the ' + POSITION_NAMES[hero] + '.',
+          question: '3-bet to ' + tb + 'bb, call, or fold?',
+          actions: [
+            { key: 'raise', label: '3-Bet ' + tb + 'bb', color: COLORS.raise },
+            { key: 'call', label: 'Call', color: COLORS.call },
+            { key: 'fold', label: 'Fold', color: COLORS.fold }
+          ],
+          strategy: strategyFor({ actions: ['raise', 'call', 'fold'], raise: look.data.raise, call: look.data.call }),
+          source: 'VS_OPEN ' + look.key,
+          seats, pot
+        });
+      }
+    }
+
+    // ---- Facing a 3-bet ----
+    for (let h = 0; h < P.length; h++) {
+      const hero = P[h];
+      if (hero === 'BB') continue;
+      for (let v = h + 1; v < P.length; v++) {
+        const villain = P[v];
+        const look = lookupVs3bet(classOf(hero), classOf(villain));
+        if (!look.data) continue;
+        const openStrat = strategyFor({ actions: ['raise', 'fold'], raise: rfiData[hero] });
+        const prior = {};
+        for (const hd of H.ALL_HANDS) prior[hd] = openStrat[hd].raise;
+        const open = openSize(hero);
+        const tb = threeBetSize(villain, hero);
+        const fb = fourBetSize(tb);
+        const seats = baseSeats(P);
+        for (let k = 0; k < h; k++) seats[P[k]] = { status: 'fold', bet: 0, label: 'Fold' };
+        seats[hero] = { status: 'hero', bet: open, label: 'Raise ' + open };
+        for (let k = h + 1; k < v; k++) seats[P[k]] = { status: 'fold', bet: 0, label: 'Fold' };
+        seats[villain] = { status: '3bet', bet: tb, label: '3-Bet ' + tb };
+        for (let k = v + 1; k < P.length; k++) seats[P[k]] = { status: 'fold', bet: 0, label: 'Fold' };
+        let pot = open + tb;
+        if (hero !== 'SB' && villain !== 'SB') pot += 0.5;
+        if (villain !== 'BB') pot += 1;
+        spots.push({
+          id: tableKey + ':vs3bet:' + hero + ':' + villain,
+          table: tableKey, type: 'vs3bet', hero, villain,
+          title: hero + ' vs ' + villain + ' 3-bet',
+          description: 'You raise to ' + open + 'bb from the ' + POSITION_NAMES[hero] + ', the ' + POSITION_NAMES[villain] + ' 3-bets to ' + tb + 'bb, everyone else folds.',
+          question: '4-bet to ~' + fb + 'bb, call, or fold?',
+          actions: [
+            { key: 'raise', label: '4-Bet ' + fb + 'bb', color: COLORS.raise4 },
+            { key: 'call', label: 'Call', color: COLORS.call },
+            { key: 'fold', label: 'Fold', color: COLORS.fold }
+          ],
+          strategy: strategyFor({ actions: ['raise', 'call', 'fold'], raise: look.data.raise, call: look.data.call }),
+          source: 'VS_3BET ' + look.key,
+          prior, // only hands hero actually opened can reach this spot
+          seats, pot
+        });
+      }
+    }
+
+    // ---- BB vs SB limp ----
+    {
+      const seats = baseSeats(P);
+      for (const p of P) if (p !== 'SB' && p !== 'BB') seats[p] = { status: 'fold', bet: 0, label: 'Fold' };
+      seats.SB = { status: 'limp', bet: 1, label: 'Limp 1' };
+      seats.BB = { status: 'hero', bet: 1, label: 'BB' };
+      spots.push({
+        id: tableKey + ':vsLimp:BB:SB',
+        table: tableKey, type: 'vsLimp', hero: 'BB', villain: 'SB',
+        title: 'BB vs SB limp',
+        description: 'Everyone folds, the small blind limps in. You are in the big blind with the option.',
+        question: 'Raise to 4bb (isolate) or check?',
+        actions: [
+          { key: 'raise', label: 'Raise 4bb', color: COLORS.raise },
+          { key: 'check', label: 'Check', color: COLORS.check }
+        ],
+        strategy: strategyFor({ actions: ['raise', 'check'], raise: R.VS_LIMP.BB_vs_SB.raise }),
+        source: 'VS_LIMP BB_vs_SB',
+        seats, pot: 2
+      });
+    }
+    return spots;
+  }
+
+  const spotCache = {};
+  function getSpots(tableKey) {
+    if (!spotCache[tableKey]) spotCache[tableKey] = buildSpots(tableKey);
+    return spotCache[tableKey];
+  }
+
+  root.Spots = { TABLES, POSITION_NAMES, TYPE_META, COLORS, classOf, getSpots, openSize, threeBetSize };
+})(typeof window !== 'undefined' ? window : globalThis);
