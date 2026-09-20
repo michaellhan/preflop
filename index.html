@@ -83,6 +83,8 @@
         <div class="stat-big">
           <div class="stat-box"><div class="v" id="stat-acc">–</div><div class="l">Accuracy</div></div>
           <div class="stat-box"><div class="v" id="stat-hands">0</div><div class="l">Hands</div></div>
+          <div class="stat-box"><div class="v" id="stat-ev">–</div><div class="l">Avg EV loss / hand</div></div>
+          <div class="stat-box"><div class="v" id="stat-evtotal">–</div><div class="l">EV lost total</div></div>
         </div>
         <div class="small-note" id="stat-breakdown"></div>
         <div class="small-note">Streak: <span id="stat-streak">0</span></div>
@@ -133,6 +135,7 @@
 
       <aside class="panel chart-side">
         <div id="chart-hand-info"></div>
+        <div id="chart-why" class="why-box hidden"></div>
         <div class="group" style="margin-top:14px"><h3>Range summary</h3><div id="chart-summary"></div></div>
         <svg id="chart-table-svg" role="img" aria-label="Table position"></svg>
         <div id="chart-source"></div>
@@ -176,9 +179,25 @@
       <ul>
         <li><b>Correct</b>: you picked the most frequent GTO action, or any action GTO takes at least 50% of the time. Worth 1 point.</li>
         <li><b>Acceptable (mixed)</b>: GTO takes your action sometimes, but another action is the main line. Worth the action's frequency (e.g. 0.3 points for a 30% action).</li>
-        <li><b>Mistake</b>: GTO never takes your action with that hand. 0 points.</li>
+        <li><b>Mistake</b>: GTO never takes your action with that hand. 0 points. A mistake that costs an estimated 1bb or more is labelled a <b>blunder</b>.</li>
       </ul>
       <p>Accuracy is points divided by hands. Stats are kept in your browser only.</p>
+
+      <h2>EV loss</h2>
+      <p>Every answer also shows an <b>estimated EV loss</b> in big blinds: how much your action costs compared with playing the GTO strategy, the same idea GTO Wizard's trainer reports. Two rules from game theory drive it:</p>
+      <ul>
+        <li>At equilibrium, every action a hand mixes between has the same EV, so choosing <i>any</i> action GTO plays with that hand loses nothing. Only actions GTO never takes cost EV.</li>
+        <li>For those, EV loss = EV(GTO mix) − EV(your action), where EV(GTO mix) is the frequency-weighted EV of the actions GTO does take.</li>
+      </ul>
+      <p>The EVs come from a compact preflop model built on the same ranges the trainer uses. Equity is computed by Monte Carlo simulation of your exact cards against the villain's real range (with card removal), and the standard fold-equity formulas are applied:</p>
+      <pre>EV(raise) = P(fold) × pot  +  P(call) × (EQR × equity × final pot − invested)  +  P(re-raise) × EV(vs re-raise)
+EV(call)  = EQR × equity × final pot − invested       (minus a squeeze penalty when players remain behind)
+EV(fold)  = −(blinds or raises already invested)</pre>
+      <p><b>EQR</b> is equity realization: in position about 100%, out of position about 82%, +5% for the last aggressor, scaled by hand type (premium hands realize ~110%, weak offsuit hands ~80-85%, and non-premium hands lose a further 12-20% in 3-bet and 4-bet pots). The villain's fold/call/raise frequencies come from their ranges in this app; how a 3-bettor responds to a 4-bet, and how the SB responds when its limp is raised, are fixed approximations. Checked against the GTO ranges, the model picks the same action as GTO for about 80% of pure opening decisions and roughly 70% of the rest, so treat the numbers as a good ordering (folding AA costs far more than opening 72o) rather than a solver-exact value.</p>
+      <p>Background reading: <a href="https://help.gtowizard.com/measure-performance/" target="_blank" rel="noopener">GTO Wizard: measuring performance (EV loss)</a>, <a href="https://blog.gtowizard.com/what-is-expected-value-in-poker/" target="_blank" rel="noopener">GTO Wizard: what is expected value</a>, <a href="https://blog.gtowizard.com/equity-realization/" target="_blank" rel="noopener">GTO Wizard: equity realization</a>, <a href="https://www.splitsuit.com/simple-poker-expected-value-formula" target="_blank" rel="noopener">SplitSuit: the EV formula</a>, <a href="https://upswingpoker.com/fold-equity/" target="_blank" rel="noopener">Upswing: fold equity</a>.</p>
+
+      <h2>The "why" notes</h2>
+      <p>After each hand (and when you hover a hand on the charts) a short note explains the decision: what kind of hand it is, why the position and the villain's range make the GTO action right, why GTO mixes when it does, and the general pattern it belongs to (why A5s 3-bets more than A9s, why small pairs fold to early opens but call late ones, and so on). The notes are rule-based, built from hand class, position, number of players behind and the opener's range, so they describe the standard solver reasoning rather than quoting a solver.</p>
 
       <h2>About "check"</h2>
       <p>Preflop, checking is only possible in the big blind when nobody has raised. The SB-limp scenario is the one place it shows up in a raise-or-fold model, so it is included as an optional scenario. Everywhere else your options are fold, call or raise.</p>
@@ -192,6 +211,9 @@
 <script src="js/hands.js"></script>
 <script src="js/ranges.js"></script>
 <script src="js/spots.js"></script>
+<script src="js/equity.js"></script>
+<script src="js/explain.js"></script>
+<script src="js/ev.js"></script>
 <script src="js/table.js"></script>
 <script src="js/grid.js"></script>
 <script src="js/app.js"></script>
