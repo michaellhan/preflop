@@ -51,7 +51,11 @@ label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
 .trainer-main { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .table-wrap { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px; }
 .table-wrap svg { width: 100%; height: auto; display: block; font-family: inherit; }
-#situation { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.situation-row { display: flex; align-items: flex-start; gap: 10px; }
+#situation { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; flex: 1; min-width: 0; }
+.icon-btn { flex: 0 0 auto; border: 1px solid var(--border); background: var(--panel); color: var(--muted); padding: 5px 10px; border-radius: 8px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.icon-btn:hover { color: var(--text); border-color: #465066; }
+.icon-btn.done { color: var(--call); border-color: var(--call); }
 #situation .sit-text { flex-basis: 100%; font-size: 16px; }
 .pill { display: inline-block; padding: 3px 10px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--border); font-size: 12px; font-weight: 600; color: var(--muted); }
 .pill.type { color: var(--accent); border-color: #4a4230; }

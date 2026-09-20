@@ -288,6 +288,56 @@
   }
 
   $('#next-btn').addEventListener('click', e => { e.currentTarget.blur(); newHand(); });
+
+  /* ---------------- copy spot as text ---------------- */
+  function spotAsText() {
+    if (!current) return '';
+    const { spot, hand, cards } = current;
+    const T6 = S.TABLES[spot.table];
+    const cardStr = cards.map(c => c.r + H.SUIT_SYMBOL[c.s]).join(' ');
+    const seatLabel = p => (T6.labels && T6.labels[p]) || p;
+    const hist = [];
+    for (const p of T6.positions) {
+      const st = spot.seats[p];
+      const me = p === spot.hero ? ' (hero)' : '';
+      if (st.status === 'fold') hist.push(seatLabel(p) + ' folds');
+      else if (st.status === 'raise') hist.push(seatLabel(p) + ' raises to ' + st.bet + 'bb');
+      else if (st.status === '3bet') hist.push(seatLabel(p) + ' 3-bets to ' + st.bet + 'bb');
+      else if (st.status === 'limp') hist.push(seatLabel(p) + ' limps');
+      else if (st.status === 'hero') {
+        if (st.label && st.label.startsWith('Raise')) hist.push(seatLabel(p) + me + ' raises to ' + st.bet + 'bb');
+        else if (st.label && st.label.startsWith('Limp')) hist.push(seatLabel(p) + me + ' limps');
+      }
+    }
+    const behind = T6.positions.slice(T6.positions.indexOf(spot.hero) + 1).filter(p => spot.seats[p].status === 'waiting' || spot.seats[p].status === 'blind');
+    const lines = [
+      'Preflop spot',
+      'Game: ' + T6.name + ' cash, 100bb effective, no ante',
+      'Scenario: ' + S.TYPE_META[spot.type].name,
+      'Hero: ' + seatLabel(spot.hero) + ' with ' + cardStr + ' (' + hand + ')',
+      'Action: ' + (hist.length ? hist.join(', ') + '. ' : '') + 'Hero to act' + (behind.length ? ' (' + behind.map(seatLabel).join(', ') + ' still to act)' : '') + '.',
+      'Pot: ' + (+spot.pot.toFixed(1)) + 'bb',
+      'Options: ' + spot.actions.map(a => a.label).join(' / ')
+    ];
+    if (current.answered) {
+      const f = spot.strategy[hand];
+      lines.push('My action: ' + labelOf(spot, current.chosen));
+      lines.push('GTO: ' + gtoLine(spot, f) + (current.analysis ? ' (est. EV loss ' + current.loss.toFixed(2) + 'bb)' : ''));
+    }
+    lines.push('Question: what is the optimal preflop play here and why?');
+    return lines.join('\n');
+  }
+  $('#copy-spot').addEventListener('click', async () => {
+    const txt = spotAsText();
+    if (!txt) return;
+    const btn = $('#copy-spot');
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(txt);
+      else { const ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
+      btn.textContent = 'Copied'; btn.classList.add('done');
+    } catch (e) { btn.textContent = 'Copy failed'; }
+    setTimeout(() => { btn.textContent = 'Copy spot'; btn.classList.remove('done'); }, 1500);
+  });
   document.addEventListener('keydown', e => {
     if ($('#view-trainer').classList.contains('active') === false) return;
     if (e.target && /input|select|textarea/i.test(e.target.tagName)) return;

@@ -98,7 +98,7 @@
 
       // dealer button
       if (pos === (o.dealer || 'BTN')) {
-        const dx = cx + 245 * Math.cos(ang - 0.28), dy = cy + 112 * Math.sin(ang - 0.28);
+        const dx = sx + (cos < -0.3 ? 1 : -1) * (pw / 2 + 16), dy = sy;
         g.appendChild(el('circle', { cx: dx, cy: dy, r: 10, fill: '#f8f8f8', stroke: '#333', 'stroke-width': 1.5 }));
         g.appendChild(el('text', { x: dx, y: dy + 4, 'text-anchor': 'middle', 'font-size': 11, 'font-weight': '800', fill: '#222' }, 'D'));
       }
