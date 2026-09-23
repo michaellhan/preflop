@@ -4,7 +4,7 @@ A GTO Wizard-style **preflop trainer** for 100bb cash games. Static site, no bui
 
 Live at **https://www.michael-han.com/preflop/**
 
-- **Trainer** — random spot (open / facing an open / facing a 3-bet / BB vs SB limp) at 6-max, 9-max or heads-up, you pick fold / call / raise, and get graded against the equilibrium frequencies with the full range revealed, an estimated **EV loss** in bb, and a **"why" note** explaining the decision (hand class, position, villain's range, the pattern it belongs to).
+- **Trainer** — random spot (open / facing an open / facing a 3-bet / BB vs SB limp) at 6-max, 9-max or heads-up, you pick fold / call / raise (or limp on an open), and get graded against the equilibrium frequencies with the full range revealed, an estimated **EV loss** in bb, and a **"why" note** explaining the decision (hand class, position, villain's range, the pattern it belongs to).
 - **Range Charts** — 13x13 reference charts for every position and scenario, split by action frequency.
 - **About the Data** — game model, sizes, accuracy notes and scoring rules.
 
@@ -22,7 +22,7 @@ node scripts/serve.mjs 8791
 node scripts/calibrate-ev.mjs 400
 ```
 
-Prints model EVs for known cases and how often the model's best action matches GTO's pure actions.
+Prints calibrated model EVs for known cases, how often the model's best action matches GTO's pure actions, and the mean EV gap on hands GTO mixes (should be small).
 
 ## Deploy
 
@@ -46,6 +46,6 @@ Parses every range, fails on duplicate hands or frequencies over 100%, and print
 - `js/hands.js` — hand grid and range-notation parser.
 - `js/spots.js` — builds the trainable spots (action history, sizes, 9-max mapping).
 - `js/equity.js` — 7-card evaluator and Monte Carlo hand-vs-range equity.
-- `js/ev.js` — approximate preflop EV model (fold equity + equity realization) used for EV loss.
+- `js/ev.js` — approximate preflop EV model (fold equity + equity realization + rake + implied value, calibrated per spot on the hands GTO mixes) used for EV loss.
 - `js/explain.js` — rule-based "why" notes.
 - `js/table.js`, `js/grid.js`, `js/app.js` — UI.

@@ -81,12 +81,14 @@
         table: tableKey, type: 'rfi', hero, villain: null,
         title: hero + ' open',
         description: (foldedBefore === 0 ? 'You are first to act' : 'Everyone folds to you') + ' in the ' + POSITION_NAMES[hero] + '.',
-        question: 'Raise to ' + size + 'bb or fold?',
+        question: 'Raise to ' + size + 'bb, call, or fold?',
         actions: [
           { key: 'raise', label: 'Raise ' + size + 'bb', color: COLORS.raise },
+          { key: 'limp', label: 'Call', color: COLORS.limp },
           { key: 'fold', label: 'Fold', color: COLORS.fold }
         ],
-        strategy: strategyFor({ actions: ['raise', 'fold'], raise: rfiData[hero] }),
+        // no limping range: open-limping is never part of the no-ante solver strategy (see About page)
+        strategy: strategyFor({ actions: ['raise', 'limp', 'fold'], raise: rfiData[hero], limp: '' }),
         source: 'RFI ' + tableKey + ' ' + hero,
         seats, pot: 1.5
       });
@@ -207,10 +209,10 @@
       id: 'hu:rfi:SB', table, type: 'rfi', hero: 'SB', villain: null,
       title: 'SB open (heads-up)',
       description: 'Heads-up: you are the small blind and the button, first to act preflop but in position after the flop.',
-      question: 'Raise to 2.5bb, limp, or fold?',
+      question: 'Raise to 2.5bb, call, or fold?',
       actions: [
         { key: 'raise', label: 'Raise 2.5bb', color: COLORS.raise },
-        { key: 'limp', label: 'Limp', color: COLORS.limp },
+        { key: 'limp', label: 'Call', color: COLORS.limp },
         { key: 'fold', label: 'Fold', color: COLORS.fold }
       ],
       strategy: openStrat, source: 'HU SB_OPEN',

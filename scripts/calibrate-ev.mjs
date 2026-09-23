@@ -8,7 +8,7 @@ const ctx = vm.createContext({ console });
 const samples = Number(process.argv[2] || 400);
 for (const f of ['hands.js', 'ranges.js', 'spots.js', 'equity.js', 'ev.js', 'explain.js']) {
   let src = fs.readFileSync(path.join(dir, f), 'utf8');
-  if (f === 'ev.js') src = src.replace('const SAMPLES = 1200;', 'const SAMPLES = ' + samples + ';');
+  if (f === 'ev.js') src = src.replace('let SAMPLES = 1200;', 'let SAMPLES = ' + samples + ';');
   vm.runInContext(src, ctx, { filename: f });
 }
 const { Hands, Spots, EV, Explain } = ctx;
@@ -17,10 +17,10 @@ const cards = h => Hands.dealCards(h);
 function show(s, hand) {
   const a = EV.analyze(s, cards(hand), hand);
   const f = s.strategy[hand];
-  const line = s.actions.map(x => x.key + ' ' + a.evs[x.key].toFixed(2) + ' (gto ' + Math.round(f[x.key] * 100) + '%)').join(' | ');
+  const line = s.actions.map(x => x.key + ' ' + a.modelEvs[x.key].toFixed(2) + ' (gto ' + Math.round(f[x.key] * 100) + '%)').join(' | ');
   console.log(s.title.padEnd(20) + hand.padEnd(5) + line + '  => loss if ' + s.actions.map(x => x.key + ':' + a.loss(x.key).toFixed(2)).join(' '));
 }
-console.log('--- known cases (EV in bb, absolute) ---');
+console.log('--- known cases (calibrated model EV in bb, absolute; loss = what the trainer charges) ---');
 show(spot('rfi', 'BTN'), 'AA'); show(spot('rfi', 'BTN'), '72o'); show(spot('rfi', 'BTN'), 'K9s'); show(spot('rfi', 'UTG'), 'AA'); show(spot('rfi', 'UTG'), 'K5s'); show(spot('rfi', 'UTG'), '76s');
 show(spot('vsOpen', 'BB', 'BTN'), 'AA'); show(spot('vsOpen', 'BB', 'BTN'), '72o'); show(spot('vsOpen', 'BB', 'BTN'), '65s'); show(spot('vsOpen', 'BB', 'BTN'), 'A5s'); show(spot('vsOpen', 'BB', 'BTN'), 'A9s');
 show(spot('vsOpen', 'HJ', 'UTG'), '22'); show(spot('vsOpen', 'BTN', 'CO'), '22'); show(spot('vsOpen', 'BTN', 'UTG'), 'KJo'); show(spot('vsOpen', 'SB', 'CO'), 'T9s');
@@ -37,14 +37,14 @@ for (const s of Spots.getSpots('6max')) {
     const a = EV.analyze(s, cards(h), h);
     const played = s.actions.filter(x => f[x.key] > 0);
     let best = null, bv = -1e9;
-    for (const x of s.actions) if (a.evs[x.key] > bv) { bv = a.evs[x.key]; best = x.key; }
+    for (const x of s.actions) if (a.modelEvs[x.key] > bv) { bv = a.modelEvs[x.key]; best = x.key; }
     if (played.length === 1) {
       total++;
       const t = perType[s.type] || (perType[s.type] = { a: 0, n: 0 });
       t.n++;
       if (best === played[0].key) { agree++; t.a++; }
     } else {
-      const evs = played.map(x => a.evs[x.key]);
+      const evs = played.map(x => a.modelEvs[x.key]);
       gapSum += Math.max(...evs) - Math.min(...evs); gapN++;
     }
   }

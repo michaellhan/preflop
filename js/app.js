@@ -270,7 +270,7 @@
     // why note
     let whyHtml = '';
     try {
-      const ex = window.Explain.explain(spot, hand, freqs);
+      const ex = window.Explain.explain(spot, hand, freqs, chosen);
       whyHtml = '<div class="why-box">' + whyMarkup(ex) + '</div>';
     } catch (err) { console.error('explain failed', err); }
     fb.innerHTML = '<div class="fb-head"><span class="verdict">' + headline + '</span>' + evBadge + '<span class="fb-hand">' + hand + ' as ' + spot.hero + (spot.villain ? ' vs ' + spot.villain : '') + '</span></div><div class="fb-text">' + expl + '</div>' + bars + whyHtml;
@@ -442,7 +442,7 @@
       info.innerHTML = '<div class="hi-hand">' + hand + ' <small>' + H.handLabel(hand) + ' · ' + H.combos(hand) + ' combos</small></div>' + (out ? '<div class="muted">Not in the ' + spot.hero + ' opening range, so this spot never happens with ' + hand + '.</div>' : parts) + (spot.prior && !out && spot.prior[hand] < 1 ? '<div class="muted">Opened ' + Math.round(spot.prior[hand] * 100) + '% of the time.</div>' : '');
       const why = $('#chart-why');
       if (out) { why.classList.add('hidden'); return; }
-      const ex = window.Explain.explain(spot, hand, freqs);
+      const ex = window.Explain.explain(spot, hand, freqs, chosen);
       why.classList.remove('hidden');
       why.innerHTML = whyMarkup(ex);
     };
@@ -466,8 +466,9 @@
     let html = '<tr><th>Table</th><th>Position</th><th>Open %</th><th>Combos</th></tr>';
     for (const tk of ['6max', '9max', 'hu']) {
       for (const s of S.getSpots(tk).filter(x => x.type === 'rfi')) {
-        const sum = G.summarize(s.strategy, s.actions).rows[0];
-        html += '<tr><td>' + S.TABLES[tk].name + '</td><td>' + s.hero + '</td><td>' + sum.pct.toFixed(1) + '%</td><td>' + sum.combos.toFixed(0) + '</td></tr>';
+        const rows = G.summarize(s.strategy, s.actions).rows.slice(0, -1); // everything but fold (heads-up counts limps)
+        const pct = rows.reduce((t, r) => t + r.pct, 0), combos = rows.reduce((t, r) => t + r.combos, 0);
+        html += '<tr><td>' + S.TABLES[tk].name + '</td><td>' + s.hero + '</td><td>' + pct.toFixed(1) + '%</td><td>' + combos.toFixed(0) + '</td></tr>';
       }
     }
     tbl.innerHTML = html;
