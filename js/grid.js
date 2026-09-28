@@ -117,5 +117,65 @@
     container.appendChild(list);
   }
 
-  root.Grid = { renderGrid, renderLegend, renderSummary, summarize, describe };
+  /* Combined chart: layers are spots ordered tightest first, each { name, color, strategy }.
+     A hand takes the colour of the first layer that raises it at least half the time;
+     hands only ever raised less than half the time are faded in the first layer that raises them at all. */
+  const MAJORITY = 0.5;
+  function combinedLayer(hand, layers) {
+    let faint = null;
+    for (const l of layers) {
+      const f = l.strategy[hand].raise || 0;
+      if (f >= MAJORITY) return { layer: l, faint: false };
+      if (f > 0 && !faint) faint = l;
+    }
+    return faint ? { layer: faint, faint: true } : null;
+  }
+
+  function renderCombined(container, layers, opts) {
+    opts = opts || {};
+    container.innerHTML = '';
+    container.classList.add('range-grid');
+    for (let i = 0; i < 13; i++) {
+      for (let j = 0; j < 13; j++) {
+        const hand = H.GRID[i][j];
+        const cell = document.createElement('div');
+        cell.className = 'cell ' + H.handType(hand);
+        cell.dataset.hand = hand;
+        const out = opts.prior && opts.prior[hand] === 0;
+        const hit = out ? null : combinedLayer(hand, layers);
+        if (out) cell.classList.add('out');
+        else if (hit) {
+          cell.style.background = hit.layer.color;
+          if (hit.faint) cell.classList.add('faint');
+        } else cell.style.background = '#2b3140';
+        const span = document.createElement('span');
+        span.textContent = hand;
+        cell.appendChild(span);
+        cell.title = out ? hand + ': not in opening range'
+          : hand + ': ' + (hit ? hit.layer.name + (hit.faint ? ' (sometimes)' : ' and wider') : 'never');
+        if (opts.onHover) {
+          cell.addEventListener('mouseenter', () => opts.onHover(hand));
+          cell.addEventListener('click', () => opts.onHover(hand, true));
+        }
+        container.appendChild(cell);
+      }
+    }
+  }
+
+  function renderCombinedLegend(container, layers) {
+    container.innerHTML = '';
+    container.classList.add('legend');
+    for (const l of layers) {
+      const item = document.createElement('div');
+      item.className = 'legend-item';
+      item.innerHTML = '<span class="swatch" style="background:' + l.color + '"></span>' + l.name;
+      container.appendChild(item);
+    }
+    const faint = document.createElement('div');
+    faint.className = 'legend-item';
+    faint.innerHTML = '<span class="swatch faint" style="background:' + layers[layers.length - 1].color + '"></span>Faded: raised under half the time';
+    container.appendChild(faint);
+  }
+
+  root.Grid = { renderGrid, renderLegend, renderSummary, summarize, describe, renderCombined, renderCombinedLegend, combinedLayer };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -203,3 +203,4 @@ label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
 .mistake.clickable:hover { background: var(--panel-2); }
 .fb-head { gap: 10px; }
 #chart-why { margin-top: 14px; font-size: 13px; }
+.range-grid .cell.faint, .swatch.faint { opacity: .4; }

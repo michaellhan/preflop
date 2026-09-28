@@ -396,19 +396,21 @@
   });
 
   /* ---------------- range charts ---------------- */
+  const ALL = '*';
   function chartSpots() { return S.getSpots(charts.table).filter(s => s.type === charts.type); }
   function renderChartControls() {
     $$('#chart-table button').forEach(b => b.classList.toggle('active', b.dataset.table === charts.table));
     $$('#chart-type button').forEach(b => b.classList.toggle('active', b.dataset.type === charts.type));
     const spots = chartSpots();
     const heroes = Array.from(new Set(spots.map(s => s.hero)));
-    if (!heroes.includes(charts.hero)) charts.hero = heroes[0];
     const hw = $('#chart-hero');
     hw.innerHTML = '';
+    if (charts.type === 'rfi' && heroes.length > 1) heroes.push(ALL);
+    if (!heroes.includes(charts.hero)) charts.hero = heroes[0];
     for (const p of heroes) {
       const b = document.createElement('button');
       b.className = 'chip' + (p === charts.hero ? ' active' : '');
-      b.textContent = p; b.title = S.POSITION_NAMES[p];
+      b.textContent = p === ALL ? 'All' : p; b.title = p === ALL ? 'Every position on one chart' : S.POSITION_NAMES[p];
       b.addEventListener('click', () => { charts.hero = p; charts.villain = null; renderCharts(); });
       hw.appendChild(b);
     }
@@ -417,11 +419,12 @@
     vw.innerHTML = '';
     $('#chart-villain-wrap').classList.toggle('hidden', !villains.length);
     if (villains.length) {
+      if (villains.length > 1) villains.push(ALL);
       if (!villains.includes(charts.villain)) charts.villain = villains[0];
       for (const p of villains) {
         const b = document.createElement('button');
         b.className = 'chip' + (p === charts.villain ? ' active' : '');
-        b.textContent = p; b.title = S.POSITION_NAMES[p];
+        b.textContent = p === ALL ? 'All' : p; b.title = p === ALL ? 'Every ' + (charts.type === 'vs3bet' ? '3-bettor' : 'opener') + ' on one chart' : S.POSITION_NAMES[p];
         b.addEventListener('click', () => { charts.villain = p; renderCharts(); });
         vw.appendChild(b);
       }
@@ -430,6 +433,8 @@
   }
   function renderCharts() {
     renderChartControls();
+    if (charts.hero === ALL || charts.villain === ALL) return renderCombinedChart();
+    $('#chart-table-svg').classList.remove('hidden');
     const spot = chartSpots().find(s => s.hero === charts.hero && (s.villain || null) === charts.villain);
     if (!spot) return;
     const T6 = S.TABLES[spot.table];
@@ -454,6 +459,45 @@
     $('#chart-why').classList.add('hidden');
     const src = $('#chart-source');
     src.textContent = 'Data key: ' + spot.source + (spot.table === '9max' && /UTG\+|LJ/.test(spot.hero + (spot.villain || '')) ? ' (9-max early positions reuse the structurally equivalent 6-max strategy, see About)' : '');
+  }
+  /* One chart for every position: each hand is coloured by the tightest spot that raises it.
+     Opens are ordered by seat (earliest first); responses by how few hands they raise. */
+  const COMBINED_PALETTE = n => n <= 6
+    ? ['#d64545', '#e8873a', '#e3c53c', '#4fb35e', '#4a7fc1', '#8a63d2']
+    : ['#d64545', '#e8793a', '#e3b23c', '#a9c845', '#4fb35e', '#2fa39a', '#4a7fc1', '#8a63d2'];
+  function renderCombinedChart() {
+    const T6 = S.TABLES[charts.table];
+    const rfi = charts.type === 'rfi';
+    let spots = chartSpots().filter(s => rfi || s.hero === charts.hero);
+    const raisePct = s => G.summarize(s.strategy, s.actions, s.prior).rows.find(r => r.key === 'raise').pct;
+    if (!rfi) spots = spots.slice().sort((a, b) => raisePct(a) - raisePct(b));
+    const n = spots.length;
+    const layers = spots.map((s, i) => ({
+      spot: s, name: rfi ? s.hero : 'vs ' + s.villain, pct: raisePct(s), strategy: s.strategy,
+      color: COMBINED_PALETTE(n)[i]
+    }));
+    const verb = spots[0].actions.find(a => a.key === 'raise').label.replace(/ [\d.]+bb$/, '').toLowerCase();
+    const prior = rfi ? null : spots[0].prior;
+    $('#chart-title').textContent = (rfi ? 'Opening raises, all positions' : charts.hero + ' ' + verb + 's, every ' + (charts.type === 'vs3bet' ? '3-bettor' : 'opener')) + ' — ' + T6.name + ', 100bb';
+    $('#chart-desc').textContent = rfi
+      ? 'Each hand is coloured by the earliest seat that opens it with a raise; later seats almost always raise it too. Blank hands are never raised first in.'
+      : 'Each hand is coloured by the tightest spot (fewest ' + verb + 's, listed first) where the ' + charts.hero + ' ' + verb + 's it. Value hands carry through to the looser spots; bluffs can drop out, so hover a hand to see every spot. Blank hands never get a ' + verb + '.';
+    const info = $('#chart-hand-info');
+    const showHand = hand => {
+      const out = prior && prior[hand] === 0;
+      const rows = layers.map(l => '<span class="hi-row"><span class="swatch" style="background:' + l.color + '"></span>' + l.name + ' <b>' + Math.round((l.strategy[hand].raise || 0) * 100) + '%</b></span>').join('');
+      info.innerHTML = '<div class="hi-hand">' + hand + ' <small>' + H.handLabel(hand) + ' · ' + H.combos(hand) + ' combos</small></div>' +
+        (out ? '<div class="muted">Not in the ' + charts.hero + ' opening range.</div>' : '<div class="muted" style="margin-bottom:4px">' + (rfi ? 'Raise' : verb[0].toUpperCase() + verb.slice(1)) + ' frequency</div>' + rows);
+    };
+    G.renderCombined($('#chart-grid'), layers, { prior, onHover: showHand });
+    G.renderCombinedLegend($('#chart-legend'), layers);
+    const sum = $('#chart-summary');
+    sum.innerHTML = '<div class="summary-rows">' + layers.map(l => '<div class="summary-row"><span class="swatch" style="background:' + l.color + '"></span><span class="lbl">' + l.name + '</span><span class="pct">' + l.pct.toFixed(1) + '%</span><span></span></div>').join('') +
+      '<div class="summary-note">Share of ' + (prior ? 'opened hands' : 'all hands') + ' each ' + (rfi ? 'seat' : 'spot') + ' ' + verb + 's, weighted by frequency.</div></div>';
+    info.innerHTML = '<div class="muted">Hover a hand to see how often each ' + (rfi ? 'seat raises' : 'spot ' + verb + 's') + ' it.</div>';
+    $('#chart-why').classList.add('hidden');
+    $('#chart-table-svg').classList.add('hidden');
+    $('#chart-source').textContent = 'Data keys: ' + spots.map(s => s.source).join(', ');
   }
   $$('#chart-table button').forEach(b => b.addEventListener('click', () => { charts.table = b.dataset.table; renderCharts(); }));
   $$('#chart-type button').forEach(b => b.addEventListener('click', () => { charts.type = b.dataset.type; charts.villain = null; renderCharts(); }));
