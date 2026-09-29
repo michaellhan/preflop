@@ -31,6 +31,7 @@
   function renderGrid(container, strategy, actions, opts) {
     opts = opts || {};
     container.innerHTML = '';
+    container.classList.remove('combined', 'focused');
     container.classList.add('range-grid');
     for (let i = 0; i < 13; i++) {
       for (let j = 0; j < 13; j++) {
@@ -117,12 +118,25 @@
     container.appendChild(list);
   }
 
-  /* Combined chart: layers are spots, each { name, color, strategy }. Each cell is split into one column
-     per layer, filled to that spot's raise frequency, so every column matches that spot's own chart. */
+  /* Combined chart: layers are spots in seat order (earliest first), each { name, color, strategy }.
+     A hand takes the colour of the earliest layer that raises it at least half the time; hands never raised
+     that often are faded in the earliest layer that raises them at all. Hover shows every layer's frequency. */
+  const MAJORITY = 0.5;
+  function combinedLayer(hand, layers) {
+    let faint = null;
+    for (let k = 0; k < layers.length; k++) {
+      const f = layers[k].strategy[hand].raise || 0;
+      if (f >= MAJORITY) return { k, faint: false };
+      if (f > 0 && faint === null) faint = k;
+    }
+    return faint === null ? null : { k: faint, faint: true };
+  }
+
   function renderCombined(container, layers, opts) {
     opts = opts || {};
     container.innerHTML = '';
-    container.classList.add('range-grid');
+    container.classList.remove('focused');
+    container.classList.add('range-grid', 'combined');
     for (let i = 0; i < 13; i++) {
       for (let j = 0; j < 13; j++) {
         const hand = H.GRID[i][j];
@@ -130,19 +144,15 @@
         cell.className = 'cell ' + H.handType(hand);
         cell.dataset.hand = hand;
         const out = opts.prior && opts.prior[hand] === 0;
+        const hit = out ? null : combinedLayer(hand, layers);
         if (out) cell.classList.add('out');
-        else {
-          cell.style.background = '#2b3140';
-          layers.forEach((l, k) => {
-            const f = l.strategy[hand].raise || 0;
-            if (f <= 0) return;
-            const bar = document.createElement('div');
-            bar.className = 'bar';
-            bar.style.cssText = 'left:' + (100 * k / layers.length) + '%;width:' + (100 / layers.length) + '%;height:' + (100 * f) + '%;background:' + l.color;
-            cell.appendChild(bar);
-          });
-        }
-        if (opts.prior && !out && opts.prior[hand] < 1) cell.style.opacity = String(0.55 + 0.45 * opts.prior[hand]);
+        else if (hit) {
+          cell.style.background = layers[hit.k].color;
+          cell.dataset.k = hit.k;
+          if (hit.faint) cell.classList.add('faint');
+        } else cell.style.background = '#2b3140';
+        const dim = (hit && hit.faint ? 0.4 : 1) * (opts.prior && !out && opts.prior[hand] < 1 ? 0.55 + 0.45 * opts.prior[hand] : 1);
+        if (dim < 1) cell.style.opacity = String(dim);
         const span = document.createElement('span');
         span.textContent = hand;
         cell.appendChild(span);
@@ -157,16 +167,32 @@
     }
   }
 
-  function renderCombinedLegend(container, layers) {
-    container.innerHTML = '';
-    container.classList.add('legend');
-    for (const l of layers) {
-      const item = document.createElement('div');
-      item.className = 'legend-item';
-      item.innerHTML = '<span class="swatch" style="background:' + l.color + '"></span>' + l.name;
-      container.appendChild(item);
-    }
+  /* Pick out the hands coloured by layer k (null clears). */
+  function focusCombined(container, k) {
+    container.classList.toggle('focused', k != null);
+    container.querySelectorAll('.cell').forEach(c => c.classList.toggle('on', k != null && c.dataset.k === String(k)));
   }
 
-  root.Grid = { renderGrid, renderLegend, renderSummary, summarize, describe, renderCombined, renderCombinedLegend };
+  function renderCombinedLegend(container, layers, opts) {
+    opts = opts || {};
+    container.innerHTML = '';
+    container.classList.add('legend');
+    layers.forEach((l, k) => {
+      const item = document.createElement('div');
+      item.className = 'legend-item';
+      item.dataset.k = k;
+      item.innerHTML = '<span class="swatch" style="background:' + l.color + '"></span>' + l.name;
+      if (opts.onFocus) {
+        item.addEventListener('mouseenter', () => opts.onFocus(k));
+        item.addEventListener('mouseleave', () => opts.onFocus(null));
+      }
+      container.appendChild(item);
+    });
+    const faint = document.createElement('div');
+    faint.className = 'legend-item';
+    faint.innerHTML = '<span class="swatch faint" style="background:' + layers[0].color + '"></span>Faded: never raised more than half the time';
+    container.appendChild(faint);
+  }
+
+  root.Grid = { renderGrid, renderLegend, renderSummary, summarize, describe, renderCombined, renderCombinedLegend, focusCombined };
 })(typeof window !== 'undefined' ? window : globalThis);

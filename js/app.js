@@ -460,43 +460,57 @@
     const src = $('#chart-source');
     src.textContent = 'Data key: ' + spot.source + (spot.table === '9max' && /UTG\+|LJ/.test(spot.hero + (spot.villain || '')) ? ' (9-max early positions reuse the structurally equivalent 6-max strategy, see About)' : '');
   }
-  /* One chart for every position: each hand shows a column per spot, filled to its raise frequency.
-     Many hands are mixed and ranges aren't nested, so a single colour per hand can't match the per-spot charts.
-     Opens are ordered by seat (earliest first); responses by how few hands they raise. */
+  /* One chart for every position: each hand is coloured by the earliest seat that raises it (later seats are
+     looser); hover shows every seat's frequency. */
   const COMBINED_PALETTE = n => n <= 6
     ? ['#d64545', '#e8873a', '#e3c53c', '#4fb35e', '#4a7fc1', '#8a63d2']
     : ['#d64545', '#e8793a', '#e3b23c', '#a9c845', '#4fb35e', '#2fa39a', '#4a7fc1', '#8a63d2'];
   function renderCombinedChart() {
     const T6 = S.TABLES[charts.table];
     const rfi = charts.type === 'rfi';
-    let spots = chartSpots().filter(s => rfi || s.hero === charts.hero);
+    const T6seats = T6.positions;
+    const seatOf = s => T6seats.indexOf(rfi ? s.hero : s.villain);
+    const spots = chartSpots().filter(s => rfi || s.hero === charts.hero).sort((a, b) => seatOf(a) - seatOf(b));
     const raisePct = s => G.summarize(s.strategy, s.actions, s.prior).rows.find(r => r.key === 'raise').pct;
-    if (!rfi) spots = spots.slice().sort((a, b) => raisePct(a) - raisePct(b));
-    const n = spots.length;
-    const layers = spots.map((s, i) => ({
-      spot: s, name: rfi ? s.hero : 'vs ' + s.villain, pct: raisePct(s), strategy: s.strategy,
-      color: COMBINED_PALETTE(n)[i]
-    }));
-    const verb = spots[0].actions.find(a => a.key === 'raise').label.replace(/ [\d.]+bb$/, '').toLowerCase();
+    const layers = spots.map((s, i) => ({ spot: s, name: rfi ? s.hero : s.villain, pct: raisePct(s), strategy: s.strategy, color: COMBINED_PALETTE(spots.length)[i] }));
+    const raise = spots[0].actions.find(a => a.key === 'raise');
+    const verb = raise.label.replace(/ [\d.]+bb$/, '').toLowerCase();
+    const who = rfi ? 'seat' : charts.type === 'vs3bet' ? '3-bettor' : 'opener';
     const prior = rfi ? null : spots[0].prior;
-    $('#chart-title').textContent = (rfi ? 'Opening raises, all positions' : charts.hero + ' ' + verb + 's, every ' + (charts.type === 'vs3bet' ? '3-bettor' : 'opener')) + ' — ' + T6.name + ', 100bb';
-    $('#chart-desc').textContent = rfi
-      ? 'Each hand has one column per seat, left to right from earliest to latest, filled to how often that seat opens it with a raise. Each column matches that seat\'s own chart. Blank hands are never raised first in.'
-      : 'Each hand has one column per ' + (charts.type === 'vs3bet' ? '3-bettor' : 'opener') + ', left to right from tightest to loosest, filled to how often the ' + charts.hero + ' ' + verb + 's it there. Each column matches that spot\'s own chart. Blank hands never get a ' + verb + '.' +
-        (prior ? ' Striped hands are never opened; dimmed hands are only opened some of the time.' : '');
+    const grid = $('#chart-grid');
+    $('#chart-title').textContent = (rfi ? 'Opening raises, all positions' : charts.hero + ' ' + verb + 's, every ' + who) + ' — ' + T6.name + ', 100bb';
+    $('#chart-desc').textContent = 'Each hand is coloured by the earliest ' + who + ' ' + (rfi ? 'that raises it' : 'the ' + charts.hero + ' ' + verb + 's it against') +
+      ' at least half the time; later positions are looser, so they usually ' + (rfi ? 'raise' : verb) + ' it too. Faded hands are only ever mixed in. Hover a hand for every ' + who + '\'s exact frequency, or a colour to pick out its hands.' +
+      (prior ? ' Striped hands are never opened; dimmed hands are only opened some of the time.' : '');
+    const focus = k => {
+      G.focusCombined(grid, k);
+      $$('#chart-legend [data-k], #chart-summary [data-k], #chart-hand-info [data-k]').forEach(el => el.classList.toggle('on', k != null && +el.dataset.k === k));
+    };
+    const bindFocus = root => root.querySelectorAll('[data-k]').forEach(el => {
+      el.addEventListener('mouseenter', () => focus(+el.dataset.k));
+      el.addEventListener('mouseleave', () => focus(null));
+    });
+    const track = (pct, color) => '<span class="hi-track"><span style="width:' + pct + '%;background:' + color + '"></span></span>';
     const info = $('#chart-hand-info');
     const showHand = hand => {
       const out = prior && prior[hand] === 0;
-      const rows = layers.map(l => '<span class="hi-row"><span class="swatch" style="background:' + l.color + '"></span>' + l.name + ' <b>' + Math.round((l.strategy[hand].raise || 0) * 100) + '%</b></span>').join('');
+      const rows = layers.map((l, k) => {
+        const f = Math.round((l.strategy[hand].raise || 0) * 100);
+        return '<div class="hi-row combined" data-k="' + k + '"><span class="hi-name">' + l.name + '</span>' + track(f, l.color) + '<b>' + f + '%</b></div>';
+      }).join('');
       info.innerHTML = '<div class="hi-hand">' + hand + ' <small>' + H.handLabel(hand) + ' · ' + H.combos(hand) + ' combos</small></div>' +
-        (out ? '<div class="muted">Not in the ' + charts.hero + ' opening range.</div>' : '<div class="muted" style="margin-bottom:4px">' + (rfi ? 'Raise' : verb[0].toUpperCase() + verb.slice(1)) + ' frequency</div>' + rows);
+        (out ? '<div class="muted">Not in the ' + charts.hero + ' opening range.</div>'
+          : '<div class="muted" style="margin-bottom:4px">' + (rfi ? 'Raise' : verb[0].toUpperCase() + verb.slice(1)) + ' frequency ' + (rfi ? 'by seat' : 'vs each ' + who) + '</div>' + rows +
+            (prior && prior[hand] < 1 ? '<div class="muted">Opened ' + Math.round(prior[hand] * 100) + '% of the time.</div>' : ''));
+      bindFocus(info);
     };
-    G.renderCombined($('#chart-grid'), layers, { prior, onHover: showHand });
-    G.renderCombinedLegend($('#chart-legend'), layers);
+    G.renderCombined(grid, layers, { prior, onHover: showHand });
+    G.renderCombinedLegend($('#chart-legend'), layers, { onFocus: focus });
     const sum = $('#chart-summary');
-    sum.innerHTML = '<div class="summary-rows">' + layers.map(l => '<div class="summary-row"><span class="swatch" style="background:' + l.color + '"></span><span class="lbl">' + l.name + '</span><span class="pct">' + l.pct.toFixed(1) + '%</span><span></span></div>').join('') +
-      '<div class="summary-note">Share of ' + (prior ? 'opened hands' : 'all hands') + ' each ' + (rfi ? 'seat' : 'spot') + ' ' + verb + 's, weighted by frequency.</div></div>';
-    info.innerHTML = '<div class="muted">Hover a hand to see how often each ' + (rfi ? 'seat raises' : 'spot ' + verb + 's') + ' it.</div>';
+    sum.innerHTML = '<div class="summary-rows">' + layers.map((l, k) => '<div class="summary-row combined" data-k="' + k + '"><span class="lbl">' + (rfi ? l.name : 'vs ' + l.name) + '</span>' + track(l.pct.toFixed(1), l.color) + '<span class="pct">' + l.pct.toFixed(1) + '%</span></div>').join('') +
+      '<div class="summary-note">Share of ' + (prior ? 'opened hands' : 'all hands') + ' each ' + who + ' ' + (rfi ? 'raises' : verb + 's') + ', weighted by frequency.</div></div>';
+    bindFocus(sum);
+    info.innerHTML = '<div class="muted">Hover a hand to see how often each ' + (rfi ? 'seat raises' : who + ' gets a ' + verb) + ' with it.</div>';
     $('#chart-why').classList.add('hidden');
     $('#chart-table-svg').classList.add('hidden');
     $('#chart-source').textContent = 'Data keys: ' + spots.map(s => s.source).join(', ');

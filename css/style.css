@@ -203,5 +203,17 @@ label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
 .mistake.clickable:hover { background: var(--panel-2); }
 .fb-head { gap: 10px; }
 #chart-why { margin-top: 14px; font-size: 13px; }
-.range-grid .cell .bar { position: absolute; bottom: 0; }
 .range-grid .cell > span { position: relative; z-index: 1; }
+.swatch.faint { opacity: .4; }
+.range-grid.combined .cell { transition: opacity .12s; }
+.range-grid.combined.focused .cell:not(.on) { opacity: .15 !important; }
+.legend-item[data-k] { cursor: default; }
+.legend-item.on { color: var(--accent); }
+.hi-track { flex: 1; height: 8px; background: var(--panel-2); border-radius: 4px; overflow: hidden; }
+.hi-track > span { display: block; height: 100%; border-radius: 4px; }
+.hi-row.combined { padding: 3px 0; }
+.hi-row.combined .hi-name { width: 52px; font-weight: 600; }
+.hi-row.combined b { margin-left: 0; width: 38px; text-align: right; }
+.hi-row.on .hi-name, .summary-row.on .lbl { color: var(--accent); }
+.summary-row.combined { grid-template-columns: 64px 1fr 46px; }
+.summary-row.combined .pct { text-align: right; }
