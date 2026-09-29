@@ -203,4 +203,5 @@ label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
 .mistake.clickable:hover { background: var(--panel-2); }
 .fb-head { gap: 10px; }
 #chart-why { margin-top: 14px; font-size: 13px; }
-.range-grid .cell.faint, .swatch.faint { opacity: .4; }
+.range-grid .cell .bar { position: absolute; bottom: 0; }
+.range-grid .cell > span { position: relative; z-index: 1; }

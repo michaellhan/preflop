@@ -460,7 +460,8 @@
     const src = $('#chart-source');
     src.textContent = 'Data key: ' + spot.source + (spot.table === '9max' && /UTG\+|LJ/.test(spot.hero + (spot.villain || '')) ? ' (9-max early positions reuse the structurally equivalent 6-max strategy, see About)' : '');
   }
-  /* One chart for every position: each hand is coloured by the tightest spot that raises it.
+  /* One chart for every position: each hand shows a column per spot, filled to its raise frequency.
+     Many hands are mixed and ranges aren't nested, so a single colour per hand can't match the per-spot charts.
      Opens are ordered by seat (earliest first); responses by how few hands they raise. */
   const COMBINED_PALETTE = n => n <= 6
     ? ['#d64545', '#e8873a', '#e3c53c', '#4fb35e', '#4a7fc1', '#8a63d2']
@@ -480,8 +481,9 @@
     const prior = rfi ? null : spots[0].prior;
     $('#chart-title').textContent = (rfi ? 'Opening raises, all positions' : charts.hero + ' ' + verb + 's, every ' + (charts.type === 'vs3bet' ? '3-bettor' : 'opener')) + ' — ' + T6.name + ', 100bb';
     $('#chart-desc').textContent = rfi
-      ? 'Each hand is coloured by the earliest seat that opens it with a raise; later seats almost always raise it too. Blank hands are never raised first in.'
-      : 'Each hand is coloured by the tightest spot (fewest ' + verb + 's, listed first) where the ' + charts.hero + ' ' + verb + 's it. Value hands carry through to the looser spots; bluffs can drop out, so hover a hand to see every spot. Blank hands never get a ' + verb + '.';
+      ? 'Each hand has one column per seat, left to right from earliest to latest, filled to how often that seat opens it with a raise. Each column matches that seat\'s own chart. Blank hands are never raised first in.'
+      : 'Each hand has one column per ' + (charts.type === 'vs3bet' ? '3-bettor' : 'opener') + ', left to right from tightest to loosest, filled to how often the ' + charts.hero + ' ' + verb + 's it there. Each column matches that spot\'s own chart. Blank hands never get a ' + verb + '.' +
+        (prior ? ' Striped hands are never opened; dimmed hands are only opened some of the time.' : '');
     const info = $('#chart-hand-info');
     const showHand = hand => {
       const out = prior && prior[hand] === 0;

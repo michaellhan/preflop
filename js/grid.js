@@ -117,20 +117,8 @@
     container.appendChild(list);
   }
 
-  /* Combined chart: layers are spots ordered tightest first, each { name, color, strategy }.
-     A hand takes the colour of the first layer that raises it at least half the time;
-     hands only ever raised less than half the time are faded in the first layer that raises them at all. */
-  const MAJORITY = 0.5;
-  function combinedLayer(hand, layers) {
-    let faint = null;
-    for (const l of layers) {
-      const f = l.strategy[hand].raise || 0;
-      if (f >= MAJORITY) return { layer: l, faint: false };
-      if (f > 0 && !faint) faint = l;
-    }
-    return faint ? { layer: faint, faint: true } : null;
-  }
-
+  /* Combined chart: layers are spots, each { name, color, strategy }. Each cell is split into one column
+     per layer, filled to that spot's raise frequency, so every column matches that spot's own chart. */
   function renderCombined(container, layers, opts) {
     opts = opts || {};
     container.innerHTML = '';
@@ -142,17 +130,24 @@
         cell.className = 'cell ' + H.handType(hand);
         cell.dataset.hand = hand;
         const out = opts.prior && opts.prior[hand] === 0;
-        const hit = out ? null : combinedLayer(hand, layers);
         if (out) cell.classList.add('out');
-        else if (hit) {
-          cell.style.background = hit.layer.color;
-          if (hit.faint) cell.classList.add('faint');
-        } else cell.style.background = '#2b3140';
+        else {
+          cell.style.background = '#2b3140';
+          layers.forEach((l, k) => {
+            const f = l.strategy[hand].raise || 0;
+            if (f <= 0) return;
+            const bar = document.createElement('div');
+            bar.className = 'bar';
+            bar.style.cssText = 'left:' + (100 * k / layers.length) + '%;width:' + (100 / layers.length) + '%;height:' + (100 * f) + '%;background:' + l.color;
+            cell.appendChild(bar);
+          });
+        }
+        if (opts.prior && !out && opts.prior[hand] < 1) cell.style.opacity = String(0.55 + 0.45 * opts.prior[hand]);
         const span = document.createElement('span');
         span.textContent = hand;
         cell.appendChild(span);
         cell.title = out ? hand + ': not in opening range'
-          : hand + ': ' + (hit ? hit.layer.name + (hit.faint ? ' (sometimes)' : ' and wider') : 'never');
+          : hand + ': ' + layers.map(l => l.name + ' ' + Math.round((l.strategy[hand].raise || 0) * 100) + '%').join(', ');
         if (opts.onHover) {
           cell.addEventListener('mouseenter', () => opts.onHover(hand));
           cell.addEventListener('click', () => opts.onHover(hand, true));
@@ -171,11 +166,7 @@
       item.innerHTML = '<span class="swatch" style="background:' + l.color + '"></span>' + l.name;
       container.appendChild(item);
     }
-    const faint = document.createElement('div');
-    faint.className = 'legend-item';
-    faint.innerHTML = '<span class="swatch faint" style="background:' + layers[layers.length - 1].color + '"></span>Faded: raised under half the time';
-    container.appendChild(faint);
   }
 
-  root.Grid = { renderGrid, renderLegend, renderSummary, summarize, describe, renderCombined, renderCombinedLegend, combinedLayer };
+  root.Grid = { renderGrid, renderLegend, renderSummary, summarize, describe, renderCombined, renderCombinedLegend };
 })(typeof window !== 'undefined' ? window : globalThis);
