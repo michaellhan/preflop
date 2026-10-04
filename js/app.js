@@ -36,8 +36,22 @@
     if (name === 'ranges') renderCharts();
     if (name === 'about') renderAbout();
   }
-  $$('.tab').forEach(t => t.addEventListener('click', () => showView(t.dataset.view)));
-  $('#brand-link').addEventListener('click', e => { e.preventDefault(); showView('trainer'); });
+  // Each view has its own URL: ./ (trainer), ranges/ and about/. The subpage copies of index.html
+  // carry <base href="../">, so the app root is always the base URL's folder.
+  const VIEWS = ['trainer', 'ranges', 'about'];
+  function viewFromURL() {
+    const rel = location.pathname.slice(new URL('./', document.baseURI).pathname.length).split('/')[0];
+    return VIEWS.includes(rel) ? rel : 'trainer';
+  }
+  function navigate(e, name) {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button) return; // let the browser open a new tab
+    e.preventDefault();
+    try { if (e.currentTarget.href !== location.href) history.pushState(null, '', e.currentTarget.href); } catch (err) { /* file:// */ }
+    showView(name);
+  }
+  $$('.tab').forEach(t => t.addEventListener('click', e => navigate(e, t.dataset.view)));
+  $('#brand-link').addEventListener('click', e => navigate(e, 'trainer'));
+  window.addEventListener('popstate', () => showView(viewFromURL()));
 
   /* ---------------- settings panel ---------------- */
   function selectedPositions() {
@@ -545,5 +559,6 @@
   renderSettings();
   renderStats();
   newHand();
+  if (viewFromURL() !== 'trainer') showView(viewFromURL());
   window.EV.precalibrate(candidateSpots());
 })();

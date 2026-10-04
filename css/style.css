@@ -25,7 +25,7 @@ a { color: var(--accent); }
 .brand .logo { color: var(--accent); font-size: 22px; align-self: center; }
 .brand small { font-weight: 500; color: var(--muted); font-size: 12px; margin-left: 6px; letter-spacing: 0; }
 .tabs { display: flex; gap: 4px; background: var(--panel); padding: 4px; border-radius: 10px; }
-.tab { border: 0; background: transparent; padding: 8px 14px; border-radius: 8px; color: var(--muted); font-weight: 600; }
+.tab { display: inline-block; text-decoration: none; border: 0; background: transparent; padding: 8px 14px; border-radius: 8px; color: var(--muted); font-weight: 600; }
 .tab.active { background: var(--panel-2); color: var(--text); }
 
 main { padding: 18px; max-width: 1400px; margin: 0 auto; }
