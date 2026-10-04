@@ -51,7 +51,7 @@
   }
   $$('.tab').forEach(t => t.addEventListener('click', e => navigate(e, t.dataset.view)));
   $('#brand-link').addEventListener('click', e => navigate(e, 'trainer'));
-  window.addEventListener('popstate', () => showView(viewFromURL()));
+  window.addEventListener('popstate', () => { if (viewFromURL() === 'ranges') chartsFromURL(); showView(viewFromURL()); });
 
   /* ---------------- settings panel ---------------- */
   function selectedPositions() {
@@ -445,8 +445,27 @@
     } else charts.villain = null;
     $('#chart-villain-label').textContent = charts.type === 'vs3bet' ? '3-bettor' : charts.type === 'vsLimp' ? 'Opponent' : 'Opener';
   }
+  /* The selected chart lives in the query string (ranges/?table=6max&scenario=vsOpen&pos=BB&vs=BTN) so every
+     chart has its own link. */
+  const CHART_TYPES = ['rfi', 'vsOpen', 'vs3bet', 'vsLimp'];
+  function chartsFromURL() {
+    const q = new URLSearchParams(location.search);
+    const pick = (v, list) => v == null ? null : list.find(x => x.toLowerCase() === v.toLowerCase()) || null;
+    const pos = v => v == null ? null : v.toLowerCase() === 'all' ? ALL : v.toUpperCase();
+    charts.table = pick(q.get('table'), Object.keys(S.TABLES)) || '6max';
+    charts.type = pick(q.get('scenario'), CHART_TYPES) || 'rfi';
+    charts.hero = pos(q.get('pos')) || 'BTN';
+    charts.villain = pos(q.get('vs'));
+  }
+  function chartsToURL() {
+    const q = new URLSearchParams({ table: charts.table, scenario: charts.type, pos: charts.hero === ALL ? 'all' : charts.hero });
+    if (charts.villain) q.set('vs', charts.villain === ALL ? 'all' : charts.villain);
+    const url = new URL('ranges/?' + q, document.baseURI).href;
+    try { if (url !== location.href) history.replaceState(null, '', url); } catch (err) { /* file:// */ }
+  }
   function renderCharts() {
     renderChartControls();
+    chartsToURL();
     if (charts.hero === ALL || charts.villain === ALL) return renderCombinedChart();
     $('#chart-table-svg').classList.remove('hidden');
     const spot = chartSpots().find(s => s.hero === charts.hero && (s.villain || null) === charts.villain);
@@ -559,6 +578,7 @@
   renderSettings();
   renderStats();
   newHand();
+  if (viewFromURL() === 'ranges') chartsFromURL();
   if (viewFromURL() !== 'trainer') showView(viewFromURL());
   window.EV.precalibrate(candidateSpots());
 })();
