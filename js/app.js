@@ -38,9 +38,13 @@
   }
   // Each view has its own URL: ./ (trainer), ranges/ and about/. The subpage copies of index.html
   // carry <base href="../">, so the app root is always the base URL's folder.
+  // The root is fixed at load: on the main page (no <base>) relative URLs would otherwise resolve
+  // against whatever pushState last set, e.g. ranges/ -> ranges/ranges/.
   const VIEWS = ['trainer', 'ranges', 'about'];
+  const ROOT = new URL('./', document.baseURI);
+  $$('.tab, #brand-link').forEach(a => { a.href = new URL(a.getAttribute('href'), ROOT).href; });
   function viewFromURL() {
-    const rel = location.pathname.slice(new URL('./', document.baseURI).pathname.length).split('/')[0];
+    const rel = location.pathname.slice(ROOT.pathname.length).split('/')[0];
     return VIEWS.includes(rel) ? rel : 'trainer';
   }
   function navigate(e, name) {
@@ -460,7 +464,7 @@
   function chartsToURL() {
     const q = new URLSearchParams({ table: charts.table, scenario: charts.type, pos: charts.hero === ALL ? 'all' : charts.hero });
     if (charts.villain) q.set('vs', charts.villain === ALL ? 'all' : charts.villain);
-    const url = new URL('ranges/?' + q, document.baseURI).href;
+    const url = new URL('ranges/?' + q, ROOT).href;
     try { if (url !== location.href) history.replaceState(null, '', url); } catch (err) { /* file:// */ }
   }
   function renderCharts() {
