@@ -50,7 +50,7 @@ label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
 
 .trainer-main { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .table-wrap { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px; }
-.table-wrap svg { width: 100%; height: auto; display: block; font-family: inherit; }
+.table-wrap svg { width: 100%; height: auto; max-height: max(260px, calc(100vh - 380px)); display: block; margin: 0 auto; font-family: inherit; }
 .situation-row { display: flex; align-items: flex-start; gap: 10px; }
 #situation { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; flex: 1; min-width: 0; }
 .icon-btn { flex: 0 0 auto; border: 1px solid var(--border); background: var(--panel); color: var(--muted); padding: 5px 10px; border-radius: 8px; font-size: 12px; font-weight: 600; white-space: nowrap; }
@@ -112,7 +112,7 @@ label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
 .reveal-body { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 14px; align-items: start; }
 
 /* ---------- grid ---------- */
-.range-grid { display: grid; grid-template-columns: repeat(13, 1fr); gap: 2px; width: 100%; aspect-ratio: 1; }
+.range-grid { display: grid; grid-template-columns: repeat(13, 1fr); gap: 2px; width: 100%; max-width: max(300px, calc(100vh - 240px)); aspect-ratio: 1; }
 .range-grid .cell { position: relative; display: flex; align-items: center; justify-content: center; border-radius: 3px; font-size: clamp(8px, 1.1vw, 12px); font-weight: 700; color: rgba(255,255,255,.92); text-shadow: 0 1px 2px rgba(0,0,0,.6); cursor: default; overflow: hidden; }
 .range-grid .cell.out { background: repeating-linear-gradient(45deg, #1b1f27 0 4px, #232833 4px 8px); color: #56607a; text-shadow: none; }
 .range-grid .cell.highlight { outline: 3px solid #fff; outline-offset: -3px; z-index: 2; }
