@@ -178,8 +178,6 @@ label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
   .trainer .stats-panel { order: 3; }
   .reveal-body { grid-template-columns: 1fr; }
   .two-col { grid-template-columns: 1fr; }
-  .topbar { flex-direction: column; gap: 8px; align-items: stretch; }
-  .tabs { justify-content: center; }
 }
 
 /* ---------- EV loss + why notes ---------- */
@@ -217,3 +215,161 @@ label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
 .hi-row.on .hi-name, .summary-row.on .lbl { color: var(--accent); }
 .summary-row.combined { grid-template-columns: 64px 1fr 46px; }
 .summary-row.combined .pct { text-align: right; }
+
+/* ---------- mobile: header, charts, about ---------- */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+/* Grid labels scale with the grid itself, so they stay as large as the cells allow on any width. */
+.range-grid { container-type: inline-size; }
+.range-grid .cell { font-size: clamp(8px, 3.4cqw, 12px); }
+.range-grid .cell.selected { outline: 2px solid #fff; outline-offset: -2px; z-index: 2; box-shadow: 0 0 0 2px var(--accent) inset; }
+.legend-item[data-k], #chart-summary [data-k], #chart-hand-info [data-k] { cursor: pointer; }
+.range-grid .cell, .legend-item, .chip, .tab, .segmented button { -webkit-tap-highlight-color: transparent; }
+.chart-info-inline { margin-top: 10px; padding: 10px 12px; }
+.chart-info-inline #chart-why { margin-top: 8px; }
+.chart-head h2, .chart-head p, #chart-source { overflow-wrap: anywhere; }
+.about { overflow-wrap: break-word; }
+.about a { overflow-wrap: anywhere; }
+.about pre { overflow-x: auto; max-width: 100%; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 12px; }
+.two-col > div { min-width: 0; }
+
+@media (max-width: 760px) {
+  /* Slim one-row header that scrolls away instead of staying pinned. */
+  .topbar { position: static; padding: 6px 12px; gap: 10px; }
+  .brand { min-height: 40px; font-size: 17px; flex: 0 0 auto; align-items: center; }
+  .brand small, .tab-long { display: none; }
+  .tabs { padding: 3px; gap: 2px; flex: 0 1 auto; min-width: 0; }
+  .tab { min-height: 40px; display: inline-flex; align-items: center; justify-content: center; padding: 0 12px; font-size: 14px; white-space: nowrap; }
+
+  /* Range charts: compact controls, then the grid at full width with the hand info right below it. */
+  .charts { gap: 12px; }
+  .charts .panel .group { margin-bottom: 10px; }
+  .charts .panel h3 { margin-bottom: 6px; font-size: 11px; }
+  .charts .segmented button { min-height: 40px; }
+  .charts .chips { gap: 6px; }
+  .charts .chip { min-height: 40px; min-width: 44px; padding: 6px 12px; }
+  #chart-type { display: grid; grid-template-columns: 1fr 1fr; }
+  #chart-type .chip { border-radius: 10px; padding: 6px 8px; }
+  .chart-head h2 { font-size: 17px; }
+  .chart-head p { font-size: 13px; margin-bottom: 10px; }
+  .range-grid { gap: 1px; max-width: none; }
+  .range-grid .cell { border-radius: 2px; letter-spacing: -.3px; }
+  .legend { gap: 6px 12px; font-size: 12px; }
+  .legend-item[data-k] { min-height: 40px; }
+  .hi-hand { font-size: 19px; margin-bottom: 4px; }
+  .hi-row { padding: 2px 0; }
+  .chart-info-inline { margin-top: 0; }
+  .summary-row { grid-template-columns: 14px minmax(0, 1fr) auto auto; }
+  .summary-row .lbl { overflow-wrap: anywhere; }
+
+  /* About: wide tables scroll inside their own box. */
+  .about h1 { font-size: 24px; margin-top: 4px; }
+  .about h2 { font-size: 18px; margin-top: 22px; }
+  .about table { display: block; overflow-x: auto; width: auto; max-width: 100%; }
+  .about table > tbody { display: table; width: 100%; }
+  .about th, .about td { padding: 5px 6px; }
+}
+@media (max-width: 400px) {
+  .brand .brand-name { display: none; }
+  .brand { padding: 0 4px; }
+  .tabs { flex: 1 1 auto; }
+  .tab { flex: 1; padding: 0 8px; }
+}
+/* Phones in landscape: header scrolls away there too, and the grid fits the short screen. */
+@media (max-height: 500px) and (orientation: landscape) {
+  .topbar { position: static; }
+}
+
+/* ---------- mobile: trainer ---------- */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+.panel-toggle { display: none; }
+/* touch screens: no keyboard, so no shortcut badges */
+@media (hover: none) and (pointer: coarse) {
+  .action-btn .key, .next-btn .key { display: none; }
+}
+/* touch: comfortable tap targets in the trainer's settings and stats */
+@media (pointer: coarse) {
+  .trainer .chip { min-height: 40px; padding: 8px 14px; }
+  .trainer .segmented button { min-height: 40px; }
+  .trainer label.check { min-height: 40px; }
+  .trainer label.check input { width: 20px; height: 20px; flex: 0 0 auto; }
+  .trainer .icon-btn { min-height: 36px; }
+  .trainer .link-btn { min-height: 40px; padding: 8px 14px; }
+  .trainer .mistake.clickable { padding: 8px 4px; }
+}
+@media (max-width: 760px) {
+  .trainer { gap: 12px; }
+  .trainer-main { gap: 10px; }
+  .trainer .panel { padding: 12px; }
+  .table-wrap { padding: 4px; }
+  /* the portrait table is sized by width; only cap it so the action buttons stay close */
+  .table-wrap svg.compact { max-height: max(240px, calc(100vh - 330px)); max-height: max(240px, calc(100svh - 330px)); }
+
+  .situation-row { gap: 8px; align-items: flex-start; }
+  #situation { gap: 6px; }
+  #situation .pill { padding: 2px 8px; font-size: 11px; }
+  #situation .sit-text { font-size: 15px; line-height: 1.4; }
+  .icon-btn { padding: 4px 9px; font-size: 12px; }
+
+  .action-row { gap: 8px; }
+  #action-buttons { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; flex: 1 1 100%; }
+  .action-btn { min-width: 0; min-height: 52px; padding: 8px 6px; font-size: 15px; line-height: 1.2; flex-direction: column; gap: 2px; text-align: center; }
+  .action-btn .lbl { white-space: normal; overflow-wrap: anywhere; }
+  .action-btn.answered { font-size: 14px; padding: 15px 6px 6px; }
+  .action-btn.answered .pct { margin-left: 0; font-size: 13px; }
+  .action-btn.chosen::after { left: 0; right: 0; top: 3px; text-align: center; font-size: 10px; letter-spacing: .4px; }
+  .next-btn { flex: 1 1 100%; justify-content: center; min-height: 48px; padding: 10px 16px; }
+
+  #feedback { padding: 12px; }
+  .verdict { font-size: 18px; }
+  .fb-text { font-size: 14px; }
+  .freq-row { grid-template-columns: minmax(64px, auto) minmax(0, 1fr) 40px; gap: 8px; }
+  .ev-line { font-size: 13px; }
+  .why-box { font-size: 14px; }
+  #reveal h3, #reveal-title { font-size: 14px; overflow-wrap: anywhere; }
+  .reveal-body > * { min-width: 0; }
+  .stat-row { grid-template-columns: 56px minmax(0, 1fr) auto; }
+  .stat-box .v { font-size: 20px; }
+  .mistake { overflow-wrap: anywhere; }
+
+}
+@media (max-width: 360px) {
+  .action-btn { font-size: 14px; padding: 8px 4px; }
+  .action-btn.answered { font-size: 13px; padding: 15px 4px 6px; }
+  .freq-row { grid-template-columns: 60px minmax(0, 1fr) 38px; font-size: 12px; }
+}
+
+/* collapsible settings + stats panels: portrait phones and landscape phones */
+@media (max-width: 760px), (max-height: 500px) and (orientation: landscape) {
+  .panel-toggle { display: flex; align-items: center; gap: 8px; width: 100%; border: 0; background: transparent; padding: 4px 0; min-height: 40px; text-align: left; }
+  .pt-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--text); }
+  .pt-sum { flex: 1; min-width: 0; color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pt-caret { width: 9px; height: 9px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); margin: -4px 4px 0 0; transition: transform .15s; }
+  .panel:not(.collapsed) > .panel-toggle { margin-bottom: 10px; }
+  .panel:not(.collapsed) > .panel-toggle .pt-caret { transform: rotate(-135deg); margin-top: 4px; }
+  .trainer .panel.collapsed > :not(.panel-toggle) { display: none; }
+  .trainer .stats-panel > h3:first-of-type { display: none; }
+}
+@media (pointer: coarse) {
+  .charts .chip, .charts .segmented button { min-height: 40px; }
+}
+/* Landscape phones: table on the left sized to the screen height, situation and actions beside it. */
+@media (max-height: 500px) and (orientation: landscape) {
+  main { padding: 8px 12px; }
+  .trainer { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .trainer .trainer-main { order: 1; }
+  .trainer .settings-panel { order: 2; }
+  .trainer .stats-panel { order: 3; grid-column: auto; }
+  .trainer .panel { padding: 10px 12px; }
+  .trainer-main { display: grid; grid-template-columns: calc((100vh - 24px) * .8) minmax(0, 1fr); grid-template-columns: calc((100svh - 24px) * .8) minmax(0, 1fr); gap: 8px 12px; align-items: start; }
+  .trainer-main .table-wrap { grid-column: 1; grid-row: 1 / span 2; padding: 4px; }
+  .trainer-main .situation-row, .trainer-main .action-row { grid-column: 2; }
+  .trainer-main #feedback, .trainer-main #reveal { grid-column: 1 / -1; }
+  .table-wrap svg.compact { max-height: calc(100vh - 32px); max-height: calc(100svh - 32px); }
+  #situation .sit-text { font-size: 15px; }
+  #action-buttons { flex: 1 1 100%; }
+  .action-btn { min-width: 0; min-height: 52px; padding: 10px 8px; }
+  .next-btn { flex: 1 1 100%; justify-content: center; min-height: 48px; }
+  .reveal-body { grid-template-columns: minmax(0, 1fr) 220px; }
+  /* range charts: the grid fits the short screen */
+  .range-grid { max-width: calc(100vh - 24px); max-width: calc(100svh - 24px); margin: 0 auto; }
+}

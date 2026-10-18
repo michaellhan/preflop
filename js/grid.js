@@ -28,9 +28,23 @@
     return s;
   }
 
+  /* Mouse hover previews a hand; a click or tap selects it (outlined) and the info returns to it when the
+     mouse leaves the grid. Touch has no hover, so the tap alone drives the info. */
+  function bindCell(container, cell, show) {
+    cell.addEventListener('pointerenter', e => { if (e.pointerType !== 'touch') show(false); });
+    cell.addEventListener('click', () => {
+      container.querySelectorAll('.cell.selected').forEach(c => c.classList.remove('selected'));
+      cell.classList.add('selected');
+      container._showSelected = show;
+      show(true);
+    });
+    container.onmouseleave = () => { if (container._showSelected) container._showSelected(false); };
+  }
+
   function renderGrid(container, strategy, actions, opts) {
     opts = opts || {};
     container.innerHTML = '';
+    container._showSelected = null;
     container.classList.remove('combined', 'focused');
     container.classList.add('range-grid');
     for (let i = 0; i < 13; i++) {
@@ -48,10 +62,7 @@
         span.textContent = hand;
         cell.appendChild(span);
         cell.title = describe(hand, strategy[hand], actions, opts.prior);
-        if (opts.onHover) {
-          cell.addEventListener('mouseenter', () => opts.onHover(hand, strategy[hand]));
-          cell.addEventListener('click', () => opts.onHover(hand, strategy[hand], true));
-        }
+        if (opts.onHover) bindCell(container, cell, clicked => opts.onHover(hand, strategy[hand], clicked));
         container.appendChild(cell);
       }
     }
@@ -135,6 +146,7 @@
   function renderCombined(container, layers, opts) {
     opts = opts || {};
     container.innerHTML = '';
+    container._showSelected = null;
     container.classList.remove('focused');
     container.classList.add('range-grid', 'combined');
     for (let i = 0; i < 13; i++) {
@@ -158,10 +170,7 @@
         cell.appendChild(span);
         cell.title = out ? hand + ': not in opening range'
           : hand + ': ' + layers.map(l => l.name + ' ' + Math.round((l.strategy[hand].raise || 0) * 100) + '%').join(', ');
-        if (opts.onHover) {
-          cell.addEventListener('mouseenter', () => opts.onHover(hand));
-          cell.addEventListener('click', () => opts.onHover(hand, true));
-        }
+        if (opts.onHover) bindCell(container, cell, clicked => opts.onHover(hand, clicked));
         container.appendChild(cell);
       }
     }

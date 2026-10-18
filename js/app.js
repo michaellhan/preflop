@@ -96,8 +96,26 @@
     $('#auto-next').checked = !!settings.autoNext;
     $('#sound-on').checked = settings.sound !== false;
     $('#spot-count').textContent = candidateSpots().length + ' spots in rotation';
+    if (settingsSum) settingsSum.textContent = S.TABLES[settings.table].name + ' · ' + candidateSpots().length + ' spots';
   }
   function persistSettings() { saveJSON(SETTINGS_KEY, settings); renderSettings(); newHand(); window.EV.precalibrate(candidateSpots()); }
+
+  /* Phones: the settings and stats panels sit under the table, so each gets a heading button that
+     collapses it (collapsed by default). The button is hidden on wider screens via CSS. */
+  let settingsSum = null;
+  function addPanelToggle(panel, title) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'panel-toggle';
+    btn.innerHTML = '<span class="pt-title">' + title + '</span><span class="pt-sum"></span><span class="pt-caret" aria-hidden="true"></span>';
+    const set = open => { panel.classList.toggle('collapsed', !open); btn.setAttribute('aria-expanded', String(open)); };
+    btn.addEventListener('click', () => set(panel.classList.contains('collapsed')));
+    panel.prepend(btn);
+    set(false); // .collapsed only has an effect inside the phone media query
+    return btn.querySelector('.pt-sum');
+  }
+  settingsSum = addPanelToggle($('.settings-panel'), 'Settings');
+  const statsSum = addPanelToggle($('.stats-panel'), 'Session stats');
 
   $$('#table-select button').forEach(b => b.addEventListener('click', () => { settings.table = b.dataset.table; persistSettings(); }));
   $$('#type-select input').forEach(i => i.addEventListener('change', () => { settings.types[i.value] = i.checked; persistSettings(); }));
@@ -162,10 +180,36 @@
     if (key) answer(key);
     window.scrollTo(0, 0);
   }
+  /* Phones get a portrait table (hero below it with big cards). Landscape phones use it too, sized to
+     the screen height beside the actions (see the landscape media query in style.css). */
+  const landscapePhone = window.matchMedia('(max-height: 500px) and (orientation: landscape)');
+  function tableIsCompact() {
+    if (landscapePhone.matches) return true;
+    const wrap = $('.table-wrap');
+    const w = (wrap && wrap.clientWidth) || window.innerWidth;
+    return w < 560;
+  }
+  let tableCompact = null;
+  function drawTrainerTable() {
+    if (!current) return;
+    const { spot, cards } = current;
+    const T6 = S.TABLES[spot.table];
+    tableCompact = tableIsCompact();
+    T.renderTable($('#table-svg'), { positions: T6.positions, hero: spot.hero, seats: spot.seats, pot: spot.pot, heroCards: cards, dealer: T6.dealer, labels: T6.labels, compact: tableCompact });
+  }
+  let tableResizeTimer = null;
+  function onTableResize() {
+    clearTimeout(tableResizeTimer);
+    tableResizeTimer = setTimeout(() => { if (current && tableIsCompact() !== tableCompact) drawTrainerTable(); }, 120);
+  }
+  window.addEventListener('resize', onTableResize);
+  window.addEventListener('orientationchange', onTableResize);
+  // also catches the trainer view becoming visible again after the window was resized elsewhere
+  if (window.ResizeObserver) new ResizeObserver(onTableResize).observe($('.table-wrap'));
   function renderHand() {
     const { spot, hand, cards } = current;
     const T6 = S.TABLES[spot.table];
-    T.renderTable($('#table-svg'), { positions: T6.positions, hero: spot.hero, seats: spot.seats, pot: spot.pot, heroCards: cards, dealer: T6.dealer, labels: T6.labels });
+    drawTrainerTable();
     $('#situation').innerHTML =
       '<span class="pill">' + T6.name + '</span><span class="pill">100bb</span><span class="pill type">' + S.TYPE_META[spot.type].name + '</span>' + (current.review ? '<span class="pill review">Review · not scored</span>' : '') +
       '<div class="sit-text">' + spot.description + ' <strong>' + spot.question + '</strong></div>';
@@ -373,6 +417,7 @@
   function renderStats() {
     $('#stat-acc').textContent = pct(stats.points, stats.total);
     $('#stat-hands').textContent = stats.total;
+    statsSum.textContent = stats.total ? pct(stats.points, stats.total) + ' · ' + stats.total + ' hands' : 'No hands yet';
     $('#stat-breakdown').textContent = stats.correct + ' correct · ' + stats.mixed + ' mixed · ' + stats.wrong + ' wrong' + (stats.blunders ? ' · ' + stats.blunders + ' blunders' : '') + ' · streak ' + stats.streak;
     $('#stat-ev').textContent = stats.total ? ((stats.evLoss || 0) / stats.total).toFixed(2) + ' bb' : '–';
     $('#stat-evtotal').textContent = stats.total ? (stats.evLoss || 0).toFixed(1) + ' bb' : '–';
@@ -467,7 +512,38 @@
     const url = new URL('ranges/?' + q, ROOT).href;
     try { if (url !== location.href) history.replaceState(null, '', url); } catch (err) { /* file:// */ }
   }
+  /* Phones: no hover, and the side panel sits far below the grid, so the hand info moves into a box right
+     under the grid and legend, and a tapped hand's info is scrolled into view if it is off screen. */
+  const HOVER = window.matchMedia('(hover: none)').matches ? 'Tap' : 'Hover';
+  const narrowCharts = window.matchMedia('(max-width: 760px), (max-height: 500px)');
+  function placeChartInfo() {
+    let box = $('#chart-info-inline');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'chart-info-inline';
+      box.className = 'panel chart-info-inline';
+      $('#chart-legend').after(box);
+    }
+    const info = $('#chart-hand-info'), why = $('#chart-why');
+    if (narrowCharts.matches) box.append(info, why);
+    else $('.chart-side').prepend(info, why);
+    box.classList.toggle('hidden', !narrowCharts.matches);
+  }
+  if (narrowCharts.addEventListener) narrowCharts.addEventListener('change', placeChartInfo);
+  function revealChartInfo(clicked) {
+    if (!clicked || !narrowCharts.matches) return;
+    const r = $('#chart-hand-info').getBoundingClientRect();
+    if (r.bottom > window.innerHeight) window.scrollBy({ top: r.bottom - window.innerHeight + 12, behavior: 'smooth' });
+  }
+  /* Combined charts: hovering a legend colour previews its hands; a click or tap pins it until it is tapped
+     again or the user taps somewhere else. */
+  let clearChartFocus = null;
+  document.addEventListener('click', e => {
+    if (clearChartFocus && !e.target.closest('#view-ranges [data-k], #chart-grid')) clearChartFocus();
+  });
   function renderCharts() {
+    placeChartInfo();
+    clearChartFocus = null;
     renderChartControls();
     chartsToURL();
     if (charts.hero === ALL || charts.villain === ALL) return renderCombinedChart();
@@ -478,21 +554,22 @@
     $('#chart-title').textContent = spot.title + ' — ' + T6.name + ', 100bb';
     $('#chart-desc').textContent = spot.description + ' ' + spot.question;
     const info = $('#chart-hand-info');
-    const showHand = (hand, freqs) => {
+    const showHand = (hand, freqs, clicked) => {
       const parts = spot.actions.map(a => '<span class="hi-row"><span class="swatch" style="background:' + a.color + '"></span>' + labelOf(spot, a.key) + ' <b>' + Math.round((freqs[a.key] || 0) * 100) + '%</b></span>').join('');
       const out = spot.prior && spot.prior[hand] === 0;
       info.innerHTML = '<div class="hi-hand">' + hand + ' <small>' + H.handLabel(hand) + ' · ' + H.combos(hand) + ' combos</small></div>' + (out ? '<div class="muted">Not in the ' + spot.hero + ' opening range, so this spot never happens with ' + hand + '.</div>' : parts) + (spot.prior && !out && spot.prior[hand] < 1 ? '<div class="muted">Opened ' + Math.round(spot.prior[hand] * 100) + '% of the time.</div>' : '');
       const why = $('#chart-why');
-      if (out) { why.classList.add('hidden'); return; }
-      const ex = window.Explain.explain(spot, hand, freqs, chosen);
+      if (out) { why.classList.add('hidden'); return revealChartInfo(clicked); }
+      const ex = window.Explain.explain(spot, hand, freqs, null);
       why.classList.remove('hidden');
       why.innerHTML = whyMarkup(ex);
+      revealChartInfo(clicked);
     };
     G.renderGrid($('#chart-grid'), spot.strategy, spot.actions, { prior: spot.prior, onHover: showHand });
     G.renderLegend($('#chart-legend'), spot.actions);
     G.renderSummary($('#chart-summary'), spot.strategy, spot.actions, spot.prior);
     T.renderTable($('#chart-table-svg'), { positions: T6.positions, hero: spot.hero, seats: spot.seats, pot: spot.pot, heroCards: null, dealer: T6.dealer, labels: T6.labels });
-    info.innerHTML = '<div class="muted">Hover a hand for its frequencies and the reasoning.</div>';
+    info.innerHTML = '<div class="muted">' + HOVER + ' a hand for its frequencies and the reasoning.</div>';
     $('#chart-why').classList.add('hidden');
     const src = $('#chart-source');
     src.textContent = 'Data key: ' + spot.source + (spot.table === '9max' && /UTG\+|LJ/.test(spot.hero + (spot.villain || '')) ? ' (9-max early positions reuse the structurally equivalent 6-max strategy, see About)' : '');
@@ -517,19 +594,23 @@
     const grid = $('#chart-grid');
     $('#chart-title').textContent = (rfi ? 'Opening raises, all positions' : charts.hero + ' ' + verb + 's, every ' + who) + ' — ' + T6.name + ', 100bb';
     $('#chart-desc').textContent = 'Each hand is coloured by the earliest ' + who + ' ' + (rfi ? 'that raises it' : 'the ' + charts.hero + ' ' + verb + 's it against') +
-      ' at least half the time; later positions are looser, so they usually ' + (rfi ? 'raise' : verb) + ' it too. Faded hands are only ever mixed in. Hover a hand for every ' + who + '\'s exact frequency, or a colour to pick out its hands.' +
+      ' at least half the time; later positions are looser, so they usually ' + (rfi ? 'raise' : verb) + ' it too. Faded hands are only ever mixed in. ' + HOVER + ' a hand for every ' + who + '\'s exact frequency, or a colour to pick out its hands.' +
       (prior ? ' Striped hands are never opened; dimmed hands are only opened some of the time.' : '');
+    let pinned = null;
     const focus = k => {
+      if (k == null) k = pinned;
       G.focusCombined(grid, k);
       $$('#chart-legend [data-k], #chart-summary [data-k], #chart-hand-info [data-k]').forEach(el => el.classList.toggle('on', k != null && +el.dataset.k === k));
     };
     const bindFocus = root => root.querySelectorAll('[data-k]').forEach(el => {
       el.addEventListener('mouseenter', () => focus(+el.dataset.k));
       el.addEventListener('mouseleave', () => focus(null));
+      el.addEventListener('click', () => { pinned = pinned === +el.dataset.k ? null : +el.dataset.k; focus(pinned); });
     });
+    clearChartFocus = () => { if (pinned != null) { pinned = null; focus(null); } };
     const track = (pct, color) => '<span class="hi-track"><span style="width:' + pct + '%;background:' + color + '"></span></span>';
     const info = $('#chart-hand-info');
-    const showHand = hand => {
+    const showHand = (hand, clicked) => {
       const out = prior && prior[hand] === 0;
       const rows = layers.map((l, k) => {
         const f = Math.round((l.strategy[hand].raise || 0) * 100);
@@ -540,14 +621,17 @@
           : '<div class="muted" style="margin-bottom:4px">' + (rfi ? 'Raise' : verb[0].toUpperCase() + verb.slice(1)) + ' frequency ' + (rfi ? 'by seat' : 'vs each ' + who) + '</div>' + rows +
             (prior && prior[hand] < 1 ? '<div class="muted">Opened ' + Math.round(prior[hand] * 100) + '% of the time.</div>' : ''));
       bindFocus(info);
+      focus(null);
+      revealChartInfo(clicked);
     };
     G.renderCombined(grid, layers, { prior, onHover: showHand });
-    G.renderCombinedLegend($('#chart-legend'), layers, { onFocus: focus });
+    G.renderCombinedLegend($('#chart-legend'), layers);
+    bindFocus($('#chart-legend'));
     const sum = $('#chart-summary');
     sum.innerHTML = '<div class="summary-rows">' + layers.map((l, k) => '<div class="summary-row combined" data-k="' + k + '"><span class="lbl">' + (rfi ? l.name : 'vs ' + l.name) + '</span>' + track(l.pct.toFixed(1), l.color) + '<span class="pct">' + l.pct.toFixed(1) + '%</span></div>').join('') +
       '<div class="summary-note">Share of ' + (prior ? 'opened hands' : 'all hands') + ' each ' + who + ' ' + (rfi ? 'raises' : verb + 's') + ', weighted by frequency.</div></div>';
     bindFocus(sum);
-    info.innerHTML = '<div class="muted">Hover a hand to see how often each ' + (rfi ? 'seat raises' : who + ' gets a ' + verb) + ' with it.</div>';
+    info.innerHTML = '<div class="muted">' + HOVER + ' a hand to see how often each ' + (rfi ? 'seat raises' : who + ' gets a ' + verb) + ' with it.</div>';
     $('#chart-why').classList.add('hidden');
     $('#chart-table-svg').classList.add('hidden');
     $('#chart-source').textContent = 'Data keys: ' + spots.map(s => s.source).join(', ');
