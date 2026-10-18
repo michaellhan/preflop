@@ -307,6 +307,7 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   .situation-row { gap: 8px; align-items: flex-start; }
   #situation { gap: 6px; }
   #situation .pill { padding: 2px 8px; font-size: 11px; }
+  #situation .pill.stack { display: none; }
   #situation .sit-text { font-size: 15px; line-height: 1.4; }
   .icon-btn { padding: 4px 9px; font-size: 12px; }
 

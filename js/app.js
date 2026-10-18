@@ -163,6 +163,12 @@
     });
     current = { spot, hand, cards: H.dealCards(hand), answered: false, chosen: null };
     renderHand();
+    // Hiding the last hand's feedback shortens the page, and a phone scrolled down to read it would be
+    // left pinned to the bottom with the new question off screen, so bring the question back into view.
+    const sit = $('.situation-row');
+    if ($('#view-trainer').classList.contains('active') && sit.getBoundingClientRect().top < 0) {
+      window.scrollTo(0, Math.max(0, window.scrollY + sit.getBoundingClientRect().top - 10));
+    }
   }
 
   function spotOfMistake(m) {
@@ -211,7 +217,7 @@
     const T6 = S.TABLES[spot.table];
     drawTrainerTable();
     $('#situation').innerHTML =
-      '<span class="pill">' + T6.name + '</span><span class="pill">100bb</span><span class="pill type">' + S.TYPE_META[spot.type].name + '</span>' + (current.review ? '<span class="pill review">Review · not scored</span>' : '') +
+      '<span class="pill">' + T6.name + '</span><span class="pill stack">100bb</span><span class="pill type">' + S.TYPE_META[spot.type].name + '</span>' + (current.review ? '<span class="pill review">Review · not scored</span>' : '') +
       '<div class="sit-text">' + spot.description + ' <strong>' + spot.question + '</strong></div>';
     const act = $('#action-buttons');
     act.innerHTML = '';
