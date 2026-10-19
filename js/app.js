@@ -139,6 +139,42 @@
   }
   function residualKey(spot) { return spot.actions[spot.actions.length - 1].key; }
 
+  /* Hard mode: deal only hands on the border of a range, i.e. whose main action differs from a
+     neighbouring hand's (one kicker or rank step on the grid, or the suited/offsuit twin). Hands that
+     are close to a coin flip are skipped, since there is no clear answer to think your way to. */
+  const EDGE_MIN_FREQ = 0.65;
+  const edgeCache = new WeakMap();
+  function mainAction(freqs) {
+    let best = null, bf = -1;
+    for (const k in freqs) if (freqs[k] > bf) { bf = freqs[k]; best = k; }
+    return { key: best, f: bf };
+  }
+  function gridNeighbours(h) {
+    const out = [];
+    for (let i = 0; i < 13; i++) for (let j = 0; j < 13; j++) {
+      if (H.GRID[i][j] !== h) continue;
+      const steps = i === j ? [[-1, -1], [1, 1], [0, 1], [1, 0]] : [[-1, 0], [1, 0], [0, -1], [0, 1]];
+      steps.forEach(([di, dj]) => { const a = i + di, b = j + dj; if (a >= 0 && a < 13 && b >= 0 && b < 13) out.push(H.GRID[a][b]); });
+      if (i !== j) out.push(H.GRID[j][i]); // suited <-> offsuit twin
+    }
+    return out;
+  }
+  function edgeWeights(spot) {
+    if (edgeCache.has(spot)) return edgeCache.get(spot);
+    const w = {};
+    H.ALL_HANDS.forEach(h => {
+      w[h] = 0;
+      if (spot.prior && !spot.prior[h]) return;
+      const m = mainAction(spot.strategy[h]);
+      if (m.f < EDGE_MIN_FREQ) return;
+      const border = gridNeighbours(h).some(n => (!spot.prior || spot.prior[n]) && mainAction(spot.strategy[n]).key !== m.key);
+      // pure decisions dealt a bit more often than the mostly-one-way ones
+      if (border) w[h] = (spot.prior ? spot.prior[h] : 1) * (m.f >= 0.95 ? 1 : 0.7);
+    });
+    edgeCache.set(spot, w);
+    return w;
+  }
+
   function newHand() {
     const spots = candidateSpots();
     const msg = $('#situation');
@@ -153,7 +189,9 @@
     }
     const spot = spots[Math.floor(Math.random() * spots.length)];
     const res = residualKey(spot);
+    const edges = settings.dealing === 'edges' ? edgeWeights(spot) : null;
     const hand = pickWeighted(H.ALL_HANDS, h => {
+      if (edges) return edges[h];
       let w = H.combos(h) * (spot.prior ? spot.prior[h] : 1);
       if (settings.dealing === 'weighted') {
         const playable = spot.strategy[h][res] < 1;
