@@ -36,6 +36,8 @@
             <label class="check"><input type="checkbox" value="rfi"> Open (RFI)</label>
             <label class="check"><input type="checkbox" value="vsOpen"> Facing an open</label>
             <label class="check"><input type="checkbox" value="vs3bet"> Facing a 3-bet</label>
+            <label class="check"><input type="checkbox" value="cold4"> Cold 4-bet</label>
+            <label class="check"><input type="checkbox" value="squeeze"> Squeeze</label>
             <label class="check"><input type="checkbox" value="vsLimp"> Limped pots</label>
           </div>
         </div>
@@ -114,6 +116,8 @@
             <button class="chip" data-type="rfi">Open (RFI)</button>
             <button class="chip" data-type="vsOpen">Facing an open</button>
             <button class="chip" data-type="vs3bet">Facing a 3-bet</button>
+            <button class="chip" data-type="cold4">Cold 4-bet</button>
+            <button class="chip" data-type="squeeze">Squeeze</button>
             <button class="chip" data-type="vsLimp">Limped pots</button>
           </div>
         </div>
@@ -124,6 +128,10 @@
         <div class="group" id="chart-villain-wrap">
           <h3 id="chart-villain-label">Opener</h3>
           <div class="chips" id="chart-villain"></div>
+        </div>
+        <div class="group hidden" id="chart-mid-wrap">
+          <h3 id="chart-mid-label">3-bettor</h3>
+          <div class="chips" id="chart-mid"></div>
         </div>
       </aside>
 
@@ -147,7 +155,7 @@
   <section id="view-about" class="view">
     <div class="about">
       <h1>About the data</h1>
-      <p>Preflop Trainer trains you against a fixed <b>100bb, no-ante cash game</b> equilibrium model. Every spot is a single decision: everyone before you has folded or made exactly one action, and you choose between fold, call/check and raise (on an open, calling the big blind is a limp). The strategy for each of the 169 starting hands is stored as action frequencies (a hand can be a pure action or a mix such as "3-bet 40% / call 60%").</p>
+      <p>Preflop Trainer trains you against a fixed <b>100bb, no-ante cash game</b> equilibrium model. Every spot is a single decision: everyone before you has folded or made exactly one action, and you choose between fold, call/check and raise (on an open, calling the big blind is a limp). That includes multi-way spots where two players acted before you: a <b>cold 4-bet</b> (one player opens, another 3-bets) and a <b>squeeze</b> (one player opens, another calls). The strategy for each of the 169 starting hands is stored as action frequencies (a hand can be a pure action or a mix such as "3-bet 40% / call 60%").</p>
 
       <h2>Game model</h2>
       <table>
@@ -155,7 +163,8 @@
         <tr><td>Stack depth</td><td>100 big blinds effective, no ante</td></tr>
         <tr><td>Open-raise size</td><td>2.5bb from every position, 3bb from the small blind. First in, GTO raises or folds; a Call button (a limp: just calling the big blind) is offered on every open so you can see what it costs (see "Limping" below)</td></tr>
         <tr><td>3-bet size</td><td>7.5bb in position (3x), 10bb from the SB, 11bb from the BB (10bb vs a 3bb SB open)</td></tr>
-        <tr><td>4-bet size</td><td>about 2.25x the 3-bet</td></tr>
+        <tr><td>4-bet size</td><td>about 2.25x the 3-bet (a cold 4-bet about 2.4x)</td></tr>
+        <tr><td>Squeeze size</td><td>11bb in position, 12bb from the blinds, over a 2.5bb open and one call</td></tr>
         <tr><td>Rake</td><td>5% capped at 3bb, taken only from pots that see a flop (no flop, no drop). Rake is why cold calls are rare outside the big blind and the SB mostly 3-bets or folds, flatting only about 1% of hands vs early opens and about 3% vs the button</td></tr>
         <tr><td>Positions</td><td>6-max: UTG, HJ, CO, BTN, SB, BB. 9-max: UTG, UTG+1, UTG+2, LJ, HJ, CO, BTN, SB, BB. Heads-up: SB (also the button, in position postflop) and BB</td></tr>
         <tr><td>Heads-up sizes</td><td>SB opens 2.5bb or limps; BB 3-bets to 10bb, 4-bet ~22bb; BB raises a limp to 4bb, SB re-raises to 12bb</td></tr>
@@ -167,6 +176,7 @@
         <li><b>Opening ranges</b>: per-hand frequencies from <a href="https://beyondgto.com/ranges/hj-open-6max-100bb" target="_blank" rel="noopener">BeyondGTO</a>'s 6-max 100bb charts (NL500 rake, 2.5bb opens), cross-checked with <a href="https://pokercoaching.com/preflop-charts/" target="_blank" rel="noopener">PokerCoaching</a>. Totals match within about 1% per seat; edge hands that differed by 30% or more were corrected.</li>
         <li><b>Facing an open</b>: GTO Wizard's published <a href="https://blog.gtowizard.com/playing-calls-from-the-button-in-cash-games/" target="_blank" rel="noopener">button frequencies</a> (vs a CO open: 3-bet ~12%, call ~5%) and its finding that the SB <a href="https://blog.gtowizard.com/crush-3-bet-pots-oop-in-cash-games/" target="_blank" rel="noopener">almost exclusively 3-bets or folds</a>. Big blind defence totals are from secondary sources only.</li>
         <li><b>Facing a 3-bet</b>: GTO Wizard's <a href="https://blog.gtowizard.com/oop-4-betting-in-deep-stacked-cash-games/" target="_blank" rel="noopener">note that TT-QQ are usually 4-bet</a> against a late-position 3-bet. Other continue frequencies are set from minimum-defence reasoning, not published numbers. The opener defends a little wider against an SB 3-bet than a BB 3-bet, because the SB 3-bets a wider, more linear range to a smaller size (10bb vs 11bb).</li>
+        <li><b>Cold 4-bets and squeezes</b>: no free per-hand solver data exists, so these ranges are built from the usual solver patterns: cold 4-bets of about 2-3% (QQ+/AK plus A5s/A4s blockers, wider against a late 3-bet), very few cold calls because the opener can still re-raise behind you, squeezes a little wider than a 3-bet against the same opener (the caller's range is capped), and overcalls mostly with pairs and suited hands, widest from the big blind. With two players ahead there are too many seat combinations to tune each one, so each range is shared by every seat in the same group (any seat before the blinds, the SB or the BB) facing an early (UTG-HJ) or late (CO-BTN) opener.</li>
         <li><b>Heads-up</b>: <a href="https://poker-coaching.s3.amazonaws.com/tools/preflop-charts/100bb-hunl-cash-game-charts.pdf" target="_blank" rel="noopener">PokerCoaching's 100bb HUNL cash charts</a> and GTO Wizard's heads-up and limped-pot articles. The limp lines are built from equity rankings to match those totals; no free per-hand heads-up limp solution exists.</li>
       </ul>
       <p>Different rake or sizing assumptions move the edges of every range, and two solvers can disagree by 20-30% on a single mixed hand. If you train against a solver with different sizes, expect the edges to differ, not the core.</p>

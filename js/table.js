@@ -16,6 +16,7 @@
     fold:    { fill: '#1c2029', stroke: '#2b313d' },
     raise:   { fill: '#4a2427', stroke: '#e0524f' },
     '3bet':  { fill: '#4a2427', stroke: '#e0524f' },
+    call:    { fill: '#1f3a27', stroke: '#4fb35e' },
     limp:    { fill: '#1f3d3b', stroke: '#2fa39a' },
     blind:   { fill: '#2b3140', stroke: '#465066' },
     waiting: { fill: '#2b3140', stroke: '#465066' }
@@ -117,7 +118,7 @@
           if (compact) { bx = sx + pw / 2 + 16; by = sy; } // beside the hero pill
           else { bx = sx + 62; by = sy - 50; }
         } else if (compact && Math.abs(cos) <= 0.45) bx = sx; // seats along the top: chip straight below the seat so centred labels stay apart
-        const chipCol = (seat.status === 'raise' || seat.status === '3bet') ? '#e0524f' : (seat.status === 'limp' ? '#2fa39a' : (isHero ? '#f5c542' : '#7c8aa5'));
+        const chipCol = (seat.status === 'raise' || seat.status === '3bet') ? '#e0524f' : (seat.status === 'limp' ? '#2fa39a' : seat.status === 'call' ? '#4fb35e' : (isHero ? '#f5c542' : '#7c8aa5'));
         g.appendChild(el('circle', { cx: bx, cy: by, r: 8, fill: chipCol, stroke: '#111', 'stroke-width': 1.5 }));
         g.appendChild(el('circle', { cx: bx, cy: by, r: 4, fill: 'none', stroke: '#fff', 'stroke-width': 1, opacity: 0.7 }));
         let label = seat.label || '';

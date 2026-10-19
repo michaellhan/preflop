@@ -280,6 +280,80 @@
     return { raise: evRaise, call: evCall, fold: -R };
   }
 
+  /* Cold 4-bet: O opened to R, V 3-bet to T, hero (not yet in) 4-bets to F / calls / folds.
+     The opener, still to act behind hero, jams its very top or folds to a cold 4-bet; after a cold call it
+     4-bets with its own vs-3-bet frequencies (hero then gives up) or comes along and makes the pot multi-way. */
+  const OPENER_VS_COLD4 = { AA: 1, KK: 1, AKs: 0.4, QQ: 0.2 };
+  function evCold4(spot, heroIds, hand) {
+    const table = spot.table, hero = spot.hero, O = spot.opener, V = spot.villain;
+    const R = S.openSize(O), T = S.threeBetSize(V, O), F = S.cold4BetSize(T), hp = posted(hero);
+    const dead = deadBlinds([hero, O, V]);
+    const seed = seedOf(spot.id + hand);
+    const threeR = weightsOf(findSpot(table, 'vsOpen', V, O).strategy, 'raise');
+    const openR = weightsOf(findSpot(table, 'rfi', O, null).strategy, 'raise');
+    // 4-bet
+    const jamR = scale(threeR, JAM_VS_4BET), callR = scale(threeR, CALL_VS_4BET);
+    const mAll = mass(threeR, heroIds) || 1e-9;
+    const pJ = mass(jamR, heroIds) / mAll, pC = mass(callR, heroIds) / mAll, pF = Math.max(0, 1 - pJ - pC);
+    const evCallV = pC > 0 ? postVs(eqr(table, hero, V, true, hand, 3), heroIds, callR, seed, 2 * F + R + dead, STACK - F) - F : 0;
+    const evJamV = pJ > 0 ? Math.max(-F, allIn(E.equity(heroIds, jamR, SAMPLES, seed + 1), 2 * STACK + R + dead) - STACK) : 0;
+    const ev4 = pF * (T + R + dead) + pC * evCallV + pJ * evJamV;
+    const oJam = scale(openR, OPENER_VS_COLD4), pOJ = mass(oJam, heroIds) / (mass(openR, heroIds) || 1e-9);
+    const evVsOJ = pOJ > 0 ? Math.max(-F, allIn(E.equity(heroIds, oJam, SAMPLES, seed + 2), 2 * STACK + T + dead) - STACK) : 0;
+    const evRaise = pOJ * evVsOJ + (1 - pOJ) * ev4;
+    // cold call
+    const my = findSpot(table, 'vs3bet', O, V);
+    let p4 = 0, pOc = 0;
+    if (my) {
+      const m = mass(my.prior, heroIds) || 1e-9;
+      p4 = mass(weightsOf(my.strategy, 'raise', my.prior), heroIds) / m;
+      pOc = mass(weightsOf(my.strategy, 'call', my.prior), heroIds) / m;
+    }
+    const mw = 1 - 0.15 * pOc; // a multi-way pot realizes less
+    const evCallFlat = postVs(mw * eqr(table, hero, V, false, hand, 2), heroIds, threeR, seed + 3, 2 * T + R + dead + pOc * (T - R), STACK - T) - T;
+    const evCall = p4 * (-T) + (1 - p4) * evCallFlat;
+    return { raise: evRaise, call: evCall, fold: -hp };
+  }
+
+  /* Squeeze: O opened to R, C called, hero squeezes to Z / overcalls / folds. The opener answers with its
+     own vs-3-bet frequencies; the caller's capped range continues only with its best hands. */
+  const CALLER_VS_SQZ = { AA: 1, KK: 1, QQ: 0.6, JJ: 0.6, TT: 0.5, '99': 0.4, '88': 0.3, '77': 0.2, AKs: 1, AKo: 1, AQs: 0.5, AJs: 0.3, KQs: 0.4, KJs: 0.2, QJs: 0.2, JTs: 0.2, AQo: 0.2 };
+  function evSqueeze(spot, heroIds, hand) {
+    const table = spot.table, P = S.TABLES[table].positions, hero = spot.hero, O = spot.opener, C = spot.villain;
+    const R = S.openSize(O), Z = S.squeezeSize(hero), hp = posted(hero);
+    const dead = deadBlinds([hero, O, C]);
+    const seed = seedOf(spot.id + hand);
+    const openR = weightsOf(findSpot(table, 'rfi', O, null).strategy, 'raise');
+    const callerR = weightsOf(findSpot(table, 'vsOpen', C, O).strategy, 'call');
+    // squeeze
+    const resp = findSpot(table, 'vs3bet', O, hero);
+    const prior = resp.prior, mAll = mass(prior, heroIds) || 1e-9;
+    const oCall = weightsOf(resp.strategy, 'call', prior), oFour = weightsOf(resp.strategy, 'raise', prior);
+    const pC = mass(oCall, heroIds) / mAll, pR = mass(oFour, heroIds) / mAll, pF = Math.max(0, 1 - pC - pR);
+    const pot = 2 * Z + R + dead; // hero and one caller, plus the other player's dead open
+    const evVsCall = pC > 0 ? postVs(eqr(table, hero, O, true, hand, 2), heroIds, oCall, seed, pot, STACK - Z) - Z : 0;
+    let evVs4 = -Z;
+    if (pR > 0 && isStrong(hand)) {
+      const jamCall = scale(oFour, CALL_JAM);
+      const pCallJam = mass(jamCall, heroIds) / (mass(oFour, heroIds) || 1e-9);
+      const F = Math.round(Z * 2.25);
+      evVs4 = Math.max(-Z, (1 - pCallJam) * (F + R + dead) + (pCallJam > 0 ? pCallJam * (allIn(E.equity(heroIds, jamCall, SAMPLES, seed + 1), 2 * STACK + R + dead) - STACK) : 0));
+    }
+    const cCont = scale(callerR, CALLER_VS_SQZ);
+    const pCc = mass(cCont, heroIds) / (mass(callerR, heroIds) || 1e-9);
+    const evVsCaller = pCc > 0 ? postVs(eqr(table, hero, C, true, hand, 2), heroIds, cCont, seed + 2, pot, STACK - Z) - Z : 0;
+    const evRaise = pR * evVs4 + pC * evVsCall + pF * (pCc * evVsCaller + (1 - pCc) * (2 * R + dead));
+    // overcall: a three-way pot against the opener's range, with a squeeze risk from players still to act
+    let pNo = 1;
+    for (const b of P.slice(P.indexOf(hero) + 1)) {
+      const rs = findSpot(table, 'vsOpen', b, O);
+      if (rs) pNo *= 1 - 0.8 * mass(weightsOf(rs.strategy, 'raise'), heroIds) / RANDOM_MASS;
+    }
+    const q = 1 - pNo;
+    const evCall = (1 - q) * (postVs(0.85 * eqr(table, hero, O, false, hand, 1), heroIds, openR, seed + 3, 3 * R + dead, STACK - R) - R) + q * (-R);
+    return { raise: evRaise, call: evCall, fold: -hp };
+  }
+
   /* BB facing a SB limp: raise to 4bb or check. */
   function evVsLimp(spot, heroIds, hand) {
     const table = spot.table;
@@ -329,6 +403,8 @@
     }
     if (spot.type === 'vsOpen') return evVsOpen(spot, heroIds, hand);
     if (spot.type === 'vs3bet') return evVs3bet(spot, heroIds, hand);
+    if (spot.type === 'cold4') return evCold4(spot, heroIds, hand);
+    if (spot.type === 'squeeze') return evSqueeze(spot, heroIds, hand);
     if (spot.hero === 'SB') return evSBIso(spot, heroIds, hand);
     return evVsLimp(spot, heroIds, hand);
   }

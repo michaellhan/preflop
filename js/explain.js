@@ -232,6 +232,72 @@
     return why;
   }
 
+  /* Cold 4-bet: two players have shown strength (an open and a 3-bet) and the opener still acts behind. */
+  function cold4Reason(spot, c, hand, primary, freqs) {
+    const tight = posClass(spot.opener) === 'early';
+    if (primary === 'raise') {
+      const parts = { 'premium-pair': 'A cold 4-bet for value: against an open and a 3-bet, this is one of the few hands that wants to get all the money in',
+        'AK': 'AK cold 4-bets: it blocks AA/KK/AK in both opponents\' ranges, is flipping or better against what calls, and takes the pot down often',
+        'strong-pair': 'The strong pair 4-bets ' + (tight ? 'only sometimes: against two tight ranges it is often behind QQ+/AK' : 'for value against a wide late-position 3-bet that has many worse hands'),
+        'AQ': 'AQ 4-bets as a blocker-heavy semi-bluff against a wide late 3-bet: it blocks AA/AK/QQ and rarely gets called by worse',
+        'wheel-suited-ace': 'A5s/A4s are the cold 4-bet bluffs: the ace blocks AA/AK in both ranges, the hand is too weak to call, and it still makes the nut flush or a wheel when called',
+        'suited-broadway': 'The suited broadway 4-bets as a rare bluff: it blocks KK/QQ/AK and would be dominated as a call' };
+      return (parts[c.cat] || 'A cold 4-bet here') + '.';
+    }
+    if (primary === 'call') {
+      const parts = { 'premium-pair': 'Cold calling with a premium pair traps both players, who often put in more money behind you',
+        'strong-pair': 'The strong pair cold calls: it is ahead of the 3-bettor\'s bluffs and sets well, but 4-betting folds out the hands it beats',
+        'AK': 'AK sometimes cold calls to keep the bluffs in and avoid being 5-bet off its equity',
+        'AQ': 'AQ cold calls: too strong to fold against a wide 3-bet, but a 4-bet would only get called by AK and big pairs',
+        'big-suited-ace': 'The big suited ace calls a wide 3-bet: it dominates weaker aces and has the nut flush draw',
+        'suited-broadway': 'The suited broadway cold calls a wide 3-bet: it flops well and is not badly dominated by the bluffs',
+        'medium-pair': 'The medium pair calls for set value with the price and pot size to justify it' };
+      return (parts[c.cat] || 'The hand cold calls') + '. The opener still acts behind you, so cold calls stay rare: they can be squeezed again.';
+    }
+    if (c.cat === 'strong-pair' || c.cat === 'AQ' || c.cat === 'big-suited-ace' || c.cat === 'suited-broadway')
+      return 'Fold: two players have shown strength and the opener can still 4-bet behind you. A hand that would happily 3-bet a single open is dominated by the combined value ranges of an open and a 3-bet.';
+    if (c.cat === 'small-pair' || c.cat === 'medium-pair' || c.cat === 'suited-connector')
+      return 'Fold: set-mining and speculative hands need a cheap price and a pot that pays off, but a cold call costs a full 3-bet and the opener can still re-raise behind you.';
+    return 'Fold: against an open and a 3-bet only premiums and a few blocker bluffs continue.';
+  }
+
+  /* Squeeze: an open and a cold call ahead; the caller's range is capped (it would have 3-bet its best hands). */
+  function squeezeReason(spot, c, hand, primary, freqs) {
+    const bb = spot.hero === 'BB', ip = spot.hero !== 'SB' && spot.hero !== 'BB';
+    if (primary === 'raise') {
+      const parts = { 'premium-pair': 'Squeeze for value: the dead money from the caller makes the pot bigger, and you want to play it heads-up with the best hand',
+        'strong-pair': 'The strong pair squeezes for value: it is ahead of the caller\'s capped range and most of the opener\'s continuing hands',
+        'AK': 'AK squeezes for value: it dominates the aces and kings both players continue with',
+        'AQ': 'AQ squeezes: it dominates the caller\'s capped range and plays poorly in a multi-way pot',
+        'big-suited-ace': 'The big suited ace squeezes: it dominates the caller\'s weaker aces and isolates the pot',
+        'big-offsuit-ace': 'The offsuit ace squeezes rather than calls: it is a poor multi-way hand but beats the caller\'s capped range',
+        'wheel-suited-ace': 'A wheel ace is the classic squeeze bluff: the caller\'s range is capped and folds often, the ace blocks AA/AK, and it still makes the nut flush or a wheel when called',
+        'mid-suited-ace': 'The suited ace squeezes as a bluff: it blocks AA/AK and the caller\'s capped range folds a lot',
+        'suited-broadway': 'The suited broadway squeezes: it is strong against the caller\'s capped range and wins the dead money often',
+        'offsuit-broadway': 'The offsuit broadway squeezes to win the dead money: it plays badly multi-way but blocks the opener\'s strong broadways',
+        'suited-connector': 'Suited connectors squeeze as occasional bluffs: they have good equity when called and the caller rarely has a strong hand',
+        'suited-king': 'The suited king squeezes as a bluff: it blocks KK/AK and the caller\'s range folds often' };
+      return (parts[c.cat] || 'A squeeze here') + '.';
+    }
+    if (primary === 'call') {
+      const parts = { 'small-pair': 'The small pair overcalls: with two players in, a set gets paid more often, and the price is good',
+        'medium-pair': 'The medium pair overcalls for set value in a multi-way pot rather than squeezing a hand that hates a 4-bet',
+        'suited-connector': 'Suited connectors overcall: they play great in multi-way pots, making straights and flushes that win big pots',
+        'suited-gapper': 'The suited gapper overcalls for its multi-way playability',
+        'suited-broadway': 'The suited broadway overcalls: it flops well and is not strong enough to want a big pot against the opener',
+        'big-suited-ace': 'The suited ace overcalls: nut-flush potential is worth a lot in a multi-way pot',
+        'mid-suited-ace': 'The suited ace overcalls for nut-flush potential in a multi-way pot',
+        'suited-king': 'The suited king overcalls for flush potential at a good price',
+        'suited-queen': 'The suited queen overcalls for flush potential at a good price',
+        'offsuit-broadway': 'The offsuit broadway overcalls: it has enough high-card value against a wide open and a capped caller, though it must play carefully multi-way',
+        'strong-pair': 'The strong pair sometimes overcalls to keep the opener\'s weaker hands in' };
+      return (parts[c.cat] || 'The hand overcalls') + (bb ? '. In the big blind you close the action at a great price, so many hands continue.' : ip ? '. With position, a multi-way pot is fine.' : '.');
+    }
+    if (c.cat === 'offsuit-broadway' || c.cat === 'big-offsuit-ace' || c.cat === 'weak-offsuit-ace' || c.cat === 'offsuit-king')
+      return 'Fold: offsuit hands play badly in multi-way pots and are often dominated by the opener, and they are not good squeeze bluffs.';
+    return 'Fold: not strong enough to squeeze for value, not a good bluff candidate, and ' + (ip ? 'not playable enough for a multi-way pot' : 'out of position in a multi-way pot it realizes too little') + '.';
+  }
+
   function vsLimpReason(spot, c, hand, primary, freqs) {
     const junk = c.cat === 'offsuit-junk' || c.cat === 'offsuit-connector' || c.cat === 'offsuit-king' || c.cat === 'weak-offsuit-ace';
     if (primary === 'raise' && junk && !c.pair) return 'The raise is polar: the weakest offsuit hands realize almost nothing if they check, so they raise as bluffs and win the pot when the limper folds.';
@@ -258,6 +324,12 @@
       return 'A5s/A4s are 4-bet bluffs, A9s-A6s are not: blocking AA/AK matters most against a narrow continuing range.';
     if (spot.type === 'vs3bet' && (c.cat === 'AK' || c.cat === 'premium-pair'))
       return '4-bet value is QQ+/AK, with JJ and TT mixed in more often as the 3-bettor\'s range widens: only strong hands continue against a 4-bet.';
+    if (spot.type === 'cold4' && (c.cat === 'strong-pair' || c.cat === 'AQ'))
+      return 'JJ/TT/AQ 3-bet a single open happily, but facing an open and a 3-bet they mostly fold: the more players show strength, the tighter you continue.';
+    if (spot.type === 'squeeze' && (c.cat === 'small-pair' || c.cat === 'suited-connector'))
+      return 'Speculative hands like small pairs and suited connectors call more when there is already a caller: multi-way pots pay off the big hands they make.';
+    if (spot.type === 'squeeze' && (c.cat === 'wheel-suited-ace' || c.cat === 'offsuit-broadway'))
+      return 'The cold caller rarely has a premium hand (they would have 3-bet it), so squeezes win the dead money often and bluffs work better than in a plain 3-bet.';
     if (spot.type === 'vsOpen' && spot.hero === 'BB' && spot.villain === 'SB')
       return 'BB vs SB is the widest defence in poker: you close the action, get a good price and have position.';
     if (spot.type === 'rfi' && spot.hero === 'SB' && (c.cat === 'offsuit-junk' || c.cat === 'offsuit-connector'))
@@ -309,6 +381,8 @@
     if (spot.type === 'rfi') why = rfiReason(spot, c, hand, primary, freqs);
     else if (spot.type === 'vsOpen') why = vsOpenReason(spot, c, hand, primary, freqs);
     else if (spot.type === 'vs3bet') why = vs3betReason(spot, c, hand, primary, freqs);
+    else if (spot.type === 'cold4') why = cold4Reason(spot, c, hand, primary, freqs);
+    else if (spot.type === 'squeeze') why = squeezeReason(spot, c, hand, primary, freqs);
     else why = vsLimpReason(spot, c, hand, primary, freqs);
     let mix = null;
     if (played.length > 1) {

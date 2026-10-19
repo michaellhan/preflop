@@ -10,7 +10,7 @@
   /* ---------------- state ---------------- */
   const defaults = () => ({
     table: '6max',
-    types: { rfi: true, vsOpen: true, vs3bet: true, vsLimp: false },
+    types: { rfi: true, vsOpen: true, vs3bet: true, cold4: true, squeeze: true, vsLimp: false },
     positions: { '6max': null, '9max': null }, // null = all
     dealing: 'weighted',
     showRange: true,
@@ -20,6 +20,7 @@
   let settings = loadJSON(SETTINGS_KEY, defaults());
   if (!settings.types || !settings.positions) settings = defaults();
   if (!('hu' in settings.positions)) settings.positions.hu = null;
+  for (const t of ['cold4', 'squeeze']) if (!(t in settings.types)) settings.types[t] = true; // added later: on by default
   let stats = loadJSON(STATS_KEY, freshStats());
   let current = null; // { spot, hand, cards, answered, chosen }
   let charts = { table: '6max', type: 'rfi', hero: 'BTN', villain: null };
@@ -137,6 +138,15 @@
     for (let i = 0; i < items.length; i++) { r -= w[i]; if (r <= 0) return items[i]; }
     return items[items.length - 1];
   }
+  /* Cold 4-bet and squeeze spots come in many seat combinations (two players ahead of hero), so each one is
+     dealt less often: together each type comes up about half as often as facing a 3-bet. */
+  const typeCount = {};
+  function spotWeight(spot) {
+    if (spot.type !== 'cold4' && spot.type !== 'squeeze') return 1;
+    const k = spot.table;
+    if (!typeCount[k]) { typeCount[k] = {}; S.getSpots(k).forEach(s => { typeCount[k][s.type] = (typeCount[k][s.type] || 0) + 1; }); }
+    return 0.5 * (typeCount[k].vs3bet || 1) / typeCount[k][spot.type];
+  }
   function residualKey(spot) { return spot.actions[spot.actions.length - 1].key; }
 
   /* Hard mode: deal only hands on the border of a range, i.e. whose main action differs from a
@@ -187,7 +197,7 @@
       $('#reveal').classList.add('hidden');
       return;
     }
-    const spot = spots[Math.floor(Math.random() * spots.length)];
+    const spot = pickWeighted(spots, spotWeight);
     const res = residualKey(spot);
     const edges = settings.dealing === 'edges' ? edgeWeights(spot) : null;
     const hand = pickWeighted(H.ALL_HANDS, h => {
@@ -379,7 +389,7 @@
       const ex = window.Explain.explain(spot, hand, freqs, chosen);
       whyHtml = '<div class="why-box">' + whyMarkup(ex) + '</div>';
     } catch (err) { console.error('explain failed', err); }
-    fb.innerHTML = '<div class="fb-head"><span class="verdict">' + headline + '</span>' + evBadge + '<span class="fb-hand">' + hand + ' as ' + spot.hero + (spot.villain ? ' vs ' + spot.villain : '') + '</span></div><div class="fb-text">' + expl + '</div>' + bars + whyHtml;
+    fb.innerHTML = '<div class="fb-head"><span class="verdict">' + headline + '</span>' + evBadge + '<span class="fb-hand">' + hand + ' as ' + spot.hero + (spot.opener ? ' vs ' + spot.opener + ' & ' + spot.villain : spot.villain ? ' vs ' + spot.villain : '') + '</span></div><div class="fb-text">' + expl + '</div>' + bars + whyHtml;
   }
 
   function renderReveal() {
@@ -409,6 +419,7 @@
       if (st.status === 'fold') hist.push(seatLabel(p) + ' folds');
       else if (st.status === 'raise') hist.push(seatLabel(p) + ' raises to ' + st.bet + 'bb');
       else if (st.status === '3bet') hist.push(seatLabel(p) + ' 3-bets to ' + st.bet + 'bb');
+      else if (st.status === 'call') hist.push(seatLabel(p) + ' calls');
       else if (st.status === 'limp') hist.push(seatLabel(p) + ' limps');
       else if (st.status === 'hero') {
         if (st.label && st.label.startsWith('Raise')) hist.push(seatLabel(p) + me + ' raises to ' + st.bet + 'bb');
@@ -521,6 +532,8 @@
       b.addEventListener('click', () => { charts.hero = p; charts.villain = null; renderCharts(); });
       hw.appendChild(b);
     }
+    $('#chart-mid-wrap').classList.add('hidden');
+    if (MULTI[charts.type]) return renderMultiControls(spots);
     const villains = spots.filter(s => s.hero === charts.hero).map(s => s.villain).filter(Boolean);
     const vw = $('#chart-villain');
     vw.innerHTML = '';
@@ -538,9 +551,38 @@
     } else charts.villain = null;
     $('#chart-villain-label').textContent = charts.type === 'vs3bet' ? '3-bettor' : charts.type === 'vsLimp' ? 'Opponent' : 'Opener';
   }
+  /* Cold 4-bet and squeeze charts have two players ahead of hero: pick the opener, then the 3-bettor or caller.
+     charts.villain holds both as "OPENER-MID" (e.g. UTG-HJ). */
+  const MULTI = { cold4: '3-bettor', squeeze: 'Caller' };
+  function vsKeyOf(s) { return s.opener ? s.opener + '-' + s.villain : (s.villain || null); }
+  function chipRow(wrap, items, active, onPick) {
+    wrap.innerHTML = '';
+    for (const p of items) {
+      const b = document.createElement('button');
+      b.className = 'chip' + (p === active ? ' active' : '');
+      b.textContent = p; b.title = S.POSITION_NAMES[p];
+      b.addEventListener('click', () => onPick(p));
+      wrap.appendChild(b);
+    }
+  }
+  function renderMultiControls(spots) {
+    const mine = spots.filter(s => s.hero === charts.hero);
+    const openers = Array.from(new Set(mine.map(s => s.opener)));
+    let [op, mid] = (charts.villain || '').split('-');
+    if (!openers.includes(op)) op = openers[0];
+    const mids = mine.filter(s => s.opener === op).map(s => s.villain);
+    if (!mids.includes(mid)) mid = mids[0];
+    charts.villain = op + '-' + mid;
+    $('#chart-villain-wrap').classList.remove('hidden');
+    $('#chart-mid-wrap').classList.remove('hidden');
+    $('#chart-villain-label').textContent = 'Opener';
+    $('#chart-mid-label').textContent = MULTI[charts.type];
+    chipRow($('#chart-villain'), openers, op, p => { charts.villain = p + '-' + mid; renderCharts(); });
+    chipRow($('#chart-mid'), mids, mid, p => { charts.villain = op + '-' + p; renderCharts(); });
+  }
   /* The selected chart lives in the query string (ranges/?table=6max&scenario=vsOpen&pos=BB&vs=BTN) so every
      chart has its own link. */
-  const CHART_TYPES = ['rfi', 'vsOpen', 'vs3bet', 'vsLimp'];
+  const CHART_TYPES = ['rfi', 'vsOpen', 'vs3bet', 'cold4', 'squeeze', 'vsLimp'];
   function chartsFromURL() {
     const q = new URLSearchParams(location.search);
     const pick = (v, list) => v == null ? null : list.find(x => x.toLowerCase() === v.toLowerCase()) || null;
@@ -592,7 +634,7 @@
     chartsToURL();
     if (charts.hero === ALL || charts.villain === ALL) return renderCombinedChart();
     $('#chart-table-svg').classList.remove('hidden');
-    const spot = chartSpots().find(s => s.hero === charts.hero && (s.villain || null) === charts.villain);
+    const spot = chartSpots().find(s => s.hero === charts.hero && vsKeyOf(s) === charts.villain);
     if (!spot) return;
     const T6 = S.TABLES[spot.table];
     $('#chart-title').textContent = spot.title + ' — ' + T6.name + ', 100bb';
@@ -616,7 +658,7 @@
     info.innerHTML = '<div class="muted">' + HOVER + ' a hand for its frequencies and the reasoning.</div>';
     $('#chart-why').classList.add('hidden');
     const src = $('#chart-source');
-    src.textContent = 'Data key: ' + spot.source + (spot.table === '9max' && /UTG\+|LJ/.test(spot.hero + (spot.villain || '')) ? ' (9-max early positions reuse the structurally equivalent 6-max strategy, see About)' : '');
+    src.textContent = 'Data key: ' + spot.source + (spot.table === '9max' && /UTG\+|LJ/.test(spot.hero + (spot.villain || '') + (spot.opener || '')) ? ' (9-max early positions reuse the structurally equivalent 6-max strategy, see About)' : '') + (spot.opener ? ' (shared by every seat in your group facing this opener tier, see About)' : '');
   }
   /* One chart for every position: each hand is coloured by the earliest seat that raises it (later seats are
      looser); hover shows every seat's frequency. */

@@ -160,6 +160,58 @@
     }
   };
 
+  /* ---------------- COLD 4-BET (someone opens, someone else 3-bets, hero has not acted) ----------------
+     raise = cold 4-bet, call = cold call the 3-bet, everything else folds. Keyed by hero group
+     (IP = any seat before the blinds, SB, BB) and opener tier (EP = UTG..HJ, LP = CO/BTN). The opener is
+     still to act behind, so cold calls are rare and the range is mostly 4-bet-or-fold. */
+  const COLD_4BET = {
+    IP_vs_EP: {
+      raise: "KK+, QQ:0.5, AKs:0.7, AKo:0.5, A5s:0.25, A4s:0.15",
+      call:  "QQ:0.5, JJ:0.6, TT:0.25, AKs:0.3, AKo:0.3, AQs:0.4, KQs:0.15"
+    },
+    SB_vs_EP: {
+      raise: "KK+, QQ:0.6, AKs:0.75, AKo:0.6, A5s:0.3, A4s:0.2",
+      call:  "QQ:0.3, JJ:0.45, TT:0.15, AKs:0.25, AKo:0.2, AQs:0.3"
+    },
+    SB_vs_LP: {
+      raise: "QQ+, JJ:0.5, AKs, AKo, AQs:0.5, AQo:0.2, A5s:0.5, A4s:0.4, A3s:0.2, KQs:0.2",
+      call:  "JJ:0.4, TT:0.4, 99:0.2, AQs:0.4, AJs:0.3, KQs:0.3, AQo:0.2"
+    },
+    BB_vs_EP: {
+      raise: "KK+, QQ:0.55, AKs:0.75, AKo:0.55, A5s:0.3, A4s:0.2",
+      call:  "QQ:0.45, JJ:0.7, TT:0.5, 99:0.25, AKs:0.25, AKo:0.3, AQs:0.6, AJs:0.25, KQs:0.4, QJs:0.1, JTs:0.1"
+    },
+    BB_vs_LP: {
+      raise: "QQ+, JJ:0.45, AKs, AKo:0.9, AQs:0.4, AQo:0.15, A5s:0.5, A4s:0.4, A3s:0.2, KQs:0.15",
+      call:  "JJ:0.5, TT:0.5, 99:0.3, 88:0.15, AKo:0.1, AQs:0.5, AJs:0.4, ATs:0.15, KQs:0.45, KJs:0.2, QJs:0.15, JTs:0.15, AQo:0.25"
+    }
+  };
+
+  /* ---------------- SQUEEZE (someone opens, someone else calls, hero has not acted) ----------------
+     raise = squeeze, call = overcall, everything else folds. Same keys as COLD_4BET. */
+  const SQUEEZE = {
+    IP_vs_EP: {
+      raise: "QQ+, JJ:0.6, TT:0.2, AKs, AKo:0.9, AQs:0.6, AQo:0.2, AJs:0.2, KQs:0.3, A5s:0.5, A4s:0.4, A3s:0.15, 76s:0.1, 65s:0.1",
+      call:  "JJ:0.4, TT:0.8, 99, 88, 77:0.9, 66:0.8, 55:0.7, 44:0.6, 33:0.5, 22:0.5, AKo:0.1, AQs:0.4, AJs:0.8, ATs:0.8, A9s:0.3, KQs:0.7, KJs:0.8, KTs:0.6, QJs:0.85, QTs:0.6, JTs:0.9, J9s:0.3, T9s:0.85, T8s:0.2, 98s:0.75, 87s:0.65, 76s:0.6, 65s:0.5, 54s:0.35, AQo:0.4, KQo:0.15"
+    },
+    SB_vs_EP: {
+      raise: "QQ+, JJ:0.75, TT:0.4, 99:0.15, AKs, AKo, AQs:0.8, AQo:0.4, AJs:0.4, ATs:0.15, KQs:0.55, KJs:0.2, A5s:0.6, A4s:0.5, A3s:0.25, A2s:0.1, 76s:0.1, 65s:0.1",
+      call:  "JJ:0.25, TT:0.4, 99:0.5, 88:0.5, 77:0.4, 66:0.3, 55:0.2, AQs:0.2, AJs:0.3, ATs:0.3, KQs:0.3, KJs:0.3, QJs:0.3, JTs:0.3, T9s:0.2, 98s:0.1"
+    },
+    SB_vs_LP: {
+      raise: "TT+, 99:0.6, 88:0.3, AKs, AKo, AQs, AQo:0.8, AJs:0.8, AJo:0.3, ATs:0.6, A9s:0.2, KQs:0.85, KQo:0.3, KJs:0.5, KTs:0.3, K9s:0.1, QJs:0.4, QTs:0.15, JTs:0.3, T9s:0.2, A5s:0.8, A4s:0.7, A3s:0.4, A2s:0.25, 98s:0.15, 87s:0.15, 76s:0.15, 65s:0.15",
+      call:  "99:0.4, 88:0.6, 77:0.6, 66:0.5, 55:0.4, 44:0.3, 33:0.2, 22:0.2, AJs:0.2, ATs:0.3, A9s:0.3, KJs:0.4, KTs:0.4, QJs:0.5, QTs:0.4, JTs:0.6, J9s:0.3, T9s:0.6, 98s:0.5, 87s:0.4, 76s:0.35, 65s:0.3, 54s:0.2"
+    },
+    BB_vs_EP: {
+      raise: "QQ+, JJ:0.65, TT:0.3, AKs, AKo:0.95, AQs:0.7, AQo:0.3, AJs:0.3, KQs:0.4, A5s:0.6, A4s:0.5, A3s:0.3, A2s:0.15, 65s:0.1, 54s:0.1",
+      call:  "JJ:0.35, TT:0.7, 22-99, AKo:0.05, AQs:0.3, AJs:0.7, ATs, A6s-A9s, A5s:0.4, A4s:0.5, A3s:0.7, A2s:0.8, KQs:0.6, KJs:0.9, K9s-KTs, K6s-K8s:0.8, K2s-K5s:0.5, QTs-QJs, Q9s, Q8s:0.8, Q6s-Q7s:0.4, J9s-JTs, J8s:0.8, J7s:0.3, T8s-T9s, T7s:0.6, 98s, 97s:0.8, 96s:0.3, 87s, 86s:0.6, 76s, 75s:0.5, 65s:0.9, 64s:0.3, 54s:0.9, 53s:0.3, 43s:0.2, AQo:0.7, AJo:0.8, ATo:0.5, A9o:0.15, KQo:0.85, KJo:0.6, KTo:0.3, QJo:0.5, QTo:0.2, JTo:0.4, T9o:0.15"
+    },
+    BB_vs_LP: {
+      raise: "TT+, 99:0.5, 88:0.25, AKs, AKo, AQs, AQo, AJs:0.85, AJo:0.5, ATs:0.6, ATo:0.15, A9s:0.25, KQs:0.85, KQo:0.5, KJs:0.5, KJo:0.15, KTs:0.35, K9s:0.15, K8s:0.1, QJs:0.4, QTs:0.2, JTs:0.3, T9s:0.2, A5s:0.8, A4s:0.7, A3s:0.5, A2s:0.4, 98s:0.15, 87s:0.15, 76s:0.2, 65s:0.2, 54s:0.15",
+      call:  "99:0.5, 88:0.75, 22-77, AJs:0.15, ATs:0.4, A9s:0.75, A6s-A8s:0.8, A5s:0.2, A4s:0.3, A3s:0.5, A2s:0.6, KQs:0.15, KJs:0.5, KTs:0.65, K9s:0.85, K2s-K8s:0.7, QJs:0.6, QTs:0.8, Q9s, Q5s-Q8s:0.7, JTs:0.7, J9s:0.9, J7s-J8s:0.8, T9s:0.8, T8s:0.9, T7s:0.7, 98s:0.85, 97s:0.8, 96s:0.4, 87s:0.85, 86s:0.6, 76s:0.8, 75s:0.5, 65s:0.8, 64s:0.4, 54s:0.85, 53s:0.4, 43s:0.3, AJo:0.5, ATo:0.75, A9o:0.5, A8o:0.3, KJo:0.85, KTo:0.6, K9o:0.2, QJo:0.85, QTo:0.6, JTo:0.8, J9o:0.2, T9o:0.4, 98o:0.15"
+    }
+  };
+
   /* ---------------- BB FACING A SB LIMP ----------------
      raise = isolate, everything else checks (the only true preflop "check" spot). */
   const VS_LIMP = {
@@ -196,5 +248,5 @@
     }
   };
 
-  root.RANGES = { RFI6, RFI9, VS_OPEN, VS_3BET, VS_LIMP, HU };
+  root.RANGES = { RFI6, RFI9, VS_OPEN, VS_3BET, COLD_4BET, SQUEEZE, VS_LIMP, HU };
 })(typeof window !== 'undefined' ? window : globalThis);

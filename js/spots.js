@@ -24,11 +24,17 @@
     return 7.5;
   }
   function fourBetSize(threeBet) { return Math.round(threeBet * 2.25); }
+  // a cold 4-bet is a little bigger than a 4-bet by the opener: the 3-bettor is often in position
+  function cold4BetSize(threeBet) { return Math.round(threeBet * 2.4); }
+  // squeeze: about 4x the open plus one open per caller, a bit more out of position
+  function squeezeSize(hero) { return (hero === 'SB' || hero === 'BB') ? 12 : 11; }
 
   const TYPE_META = {
     rfi:    { key: 'rfi',    name: 'Open (RFI)',        short: 'RFI' },
     vsOpen: { key: 'vsOpen', name: 'Facing an open',    short: 'vs Open' },
     vs3bet: { key: 'vs3bet', name: 'Facing a 3-bet',    short: 'vs 3-Bet' },
+    cold4:  { key: 'cold4',  name: 'Cold 4-bet',        short: 'Cold 4-Bet' },
+    squeeze:{ key: 'squeeze', name: 'Squeeze',          short: 'Squeeze' },
     vsLimp: { key: 'vsLimp', name: 'Limped pot',        short: 'Limp pot' }
   };
 
@@ -52,7 +58,16 @@
     return { key, data: R.VS_3BET[key] };
   }
 
-  /* seat status: 'blind' (posted, not yet acted), 'fold', 'raise', '3bet', 'limp', 'hero', 'waiting' */
+  /* Cold 4-bet and squeeze spots have two players ahead of hero, so their ranges are keyed by hero group and
+     opener tier rather than by every seat combination (see ranges.js). */
+  function multiKey(hero, opener) {
+    const g = hero === 'SB' || hero === 'BB' ? hero : 'IP';
+    const oc = classOf(opener);
+    return g + '_vs_' + (oc === 'UTG' || oc === 'HJ' ? 'EP' : 'LP');
+  }
+  function potOf(seats) { let p = 0; for (const k in seats) p += seats[k].bet; return p; }
+
+  /* seat status: 'blind' (posted, not yet acted), 'fold', 'raise', 'call', '3bet', 'limp', 'hero', 'waiting' */
   function baseSeats(positions) {
     const seats = {};
     for (const p of positions) seats[p] = { status: 'waiting', bet: 0, label: '' };
@@ -174,6 +189,65 @@
       }
     }
 
+    // ---- Cold 4-bet: opener raises, a later player 3-bets, hero (still to act) is behind both ----
+    // ---- Squeeze: opener raises, a later player calls, hero is behind both ----
+    for (const type of ['cold4', 'squeeze']) {
+      const data = type === 'cold4' ? R.COLD_4BET : R.SQUEEZE;
+      for (let o = 0; o < P.length; o++) {
+        const opener = P[o];
+        if (opener === 'BB') continue;
+        for (let m = o + 1; m < P.length; m++) {
+          const mid = P[m];
+          for (let h = m + 1; h < P.length; h++) {
+            const hero = P[h];
+            const key = multiKey(hero, opener);
+            if (!data[key]) continue;
+            const open = openSize(opener);
+            const seats = baseSeats(P);
+            for (let k = 0; k < o; k++) seats[P[k]] = { status: 'fold', bet: 0, label: 'Fold' };
+            seats[opener] = { status: 'raise', bet: open, label: 'Raise ' + open };
+            for (let k = o + 1; k < m; k++) seats[P[k]] = { status: 'fold', bet: 0, label: 'Fold' };
+            let size, desc, actions, title;
+            if (type === 'cold4') {
+              const tb = threeBetSize(mid, opener);
+              size = cold4BetSize(tb);
+              seats[mid] = { status: '3bet', bet: tb, label: '3-Bet ' + tb };
+              title = hero + ' vs ' + opener + ' open + ' + mid + ' 3-bet';
+              desc = POSITION_NAMES[opener] + ' raises to ' + open + 'bb, the ' + POSITION_NAMES[mid] + ' 3-bets to ' + tb + 'bb' + (h - m > 1 ? ', everyone else folds to you' : '') + ' in the ' + POSITION_NAMES[hero] + '.';
+              actions = [
+                { key: 'raise', label: '4-Bet ' + size + 'bb', color: COLORS.raise4 },
+                { key: 'call', label: 'Call', color: COLORS.call },
+                { key: 'fold', label: 'Fold', color: COLORS.fold }
+              ];
+            } else {
+              size = squeezeSize(hero);
+              seats[mid] = { status: 'call', bet: open, label: 'Call ' + open };
+              title = hero + ' vs ' + opener + ' open + ' + mid + ' call';
+              desc = POSITION_NAMES[opener] + ' raises to ' + open + 'bb, the ' + POSITION_NAMES[mid] + ' calls' + (h - m > 1 ? ', everyone else folds to you' : '') + ' in the ' + POSITION_NAMES[hero] + '.';
+              actions = [
+                { key: 'raise', label: 'Squeeze ' + size + 'bb', color: COLORS.raise },
+                { key: 'call', label: 'Call', color: COLORS.call },
+                { key: 'fold', label: 'Fold', color: COLORS.fold }
+              ];
+            }
+            for (let k = m + 1; k < h; k++) seats[P[k]] = { status: 'fold', bet: 0, label: 'Fold' };
+            seats[hero] = { status: 'hero', bet: hero === 'SB' ? 0.5 : hero === 'BB' ? 1 : 0, label: hero === 'SB' ? 'SB' : hero === 'BB' ? 'BB' : '' };
+            spots.push({
+              id: tableKey + ':' + type + ':' + hero + ':' + opener + ':' + mid,
+              table: tableKey, type, hero, villain: mid, opener,
+              title,
+              description: desc,
+              question: (type === 'cold4' ? '4-bet to ' + size + 'bb' : 'Squeeze to ' + size + 'bb') + ', call, or fold?',
+              actions,
+              strategy: strategyFor({ actions: ['raise', 'call', 'fold'], raise: data[key].raise, call: data[key].call }),
+              source: (type === 'cold4' ? 'COLD_4BET ' : 'SQUEEZE ') + key,
+              seats, pot: potOf(seats)
+            });
+          }
+        }
+      }
+    }
+
     // ---- BB vs SB limp ----
     {
       const seats = baseSeats(P);
@@ -280,5 +354,5 @@
     return spotCache[tableKey];
   }
 
-  root.Spots = { TABLES, POSITION_NAMES, TYPE_META, COLORS, classOf, getSpots, openSize, threeBetSize };
+  root.Spots = { TABLES, POSITION_NAMES, TYPE_META, COLORS, classOf, getSpots, openSize, threeBetSize, cold4BetSize, squeezeSize };
 })(typeof window !== 'undefined' ? window : globalThis);
