@@ -251,7 +251,7 @@
     if (spot.type === 'vsOpen' && c.cat === 'offsuit-broadway')
       return 'KQo/KJo/QJo fold to early opens but continue vs late ones: the tighter the range, the more AK/AQ/AJ/KQ dominate them.';
     if (spot.type === 'vsOpen' && (c.cat === 'suited-connector' || c.cat === 'suited-gapper') && spot.hero === 'SB')
-      return 'Suited connectors can flat in position but not from the SB: out of position with the BB behind, the SB 3-bets or folds.';
+      return 'Suited connectors flat freely in position but only rarely from the SB: out of position with the BB behind, the SB mostly 3-bets or folds and keeps just a thin flatting range (more of it against late opens).';
     if (spot.type === 'rfi' && posClass(spot.hero) === 'early' && (c.cat === 'suited-king' || c.cat === 'suited-connector' || c.cat === 'weak-offsuit-ace'))
       return 'The same hand opens from the cutoff or button: ranges widen from ~17% UTG to ~43% on the button as fewer players remain behind.';
     if (spot.type === 'vs3bet' && c.cat === 'wheel-suited-ace')
