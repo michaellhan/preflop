@@ -37,23 +37,26 @@
   }
   const RV = E.RV;
   /* Hand-type equity realization: strong made hands over-realize, weak/bluff-type hands under-realize. */
-  const CAT_EQR = { 'premium-pair': 1.10, 'strong-pair': 1.08, 'AK': 1.08, 'AQ': 1.04, 'medium-pair': 1.0, 'big-suited-ace': 1.0, 'suited-broadway': 1.0,
-    'small-pair': 0.95, 'mid-suited-ace': 0.92, 'wheel-suited-ace': 0.92, 'suited-connector': 0.92, 'suited-gapper': 0.9, 'suited-king': 0.9, 'suited-queen': 0.9,
-    'offsuit-broadway': 0.9, 'big-offsuit-ace': 0.9, 'weak-offsuit-ace': 0.85, 'offsuit-king': 0.85, 'offsuit-connector': 0.85, 'suited-junk': 0.85, 'offsuit-junk': 0.8 };
+  const CAT_EQR = { 'premium-pair': 1.01, 'strong-pair': 1.08, 'AK': 1.17, 'AQ': 0.92, 'medium-pair': 0.91, 'big-suited-ace': 1.03, 'suited-broadway': 1.03,
+    'small-pair': 1.01, 'mid-suited-ace': 1.01, 'wheel-suited-ace': 0.95, 'suited-connector': 0.98, 'suited-gapper': 0.93, 'suited-king': 0.87, 'suited-queen': 0.9,
+    'offsuit-broadway': 0.87, 'big-offsuit-ace': 0.9, 'weak-offsuit-ace': 0.76, 'offsuit-king': 0.76, 'offsuit-connector': 0.88, 'suited-junk': 0.73, 'offsuit-junk': 0.74 };
   function handMod(hand) { return CAT_EQR[root.Explain.classify(hand).cat] || 1; }
-  /* Equity realization: in position ~100%, out of position ~82%, +5% for the last aggressor,
+  /* Equity realization: in position ~100%, out of position ~82%, +2% for the last aggressor,
      scaled by hand type. */
+  // speculative hand types: realize relatively more in re-raised pots, and win extra implied value (SPEC_IV x stack behind)
+  const SPEC = { 'small-pair': 1, 'medium-pair': 1, 'suited-connector': 1, 'suited-gapper': 1, 'wheel-suited-ace': 1 };
+  const SPEC_IV = { 'small-pair': 0.012, 'medium-pair': 0.012, 'suited-connector': 0.012, 'suited-broadway': 0.008, 'suited-gapper': 0.004, 'mid-suited-ace': 0.004, 'suited-king': 0.004 };
   const STRONG = { 'premium-pair': 1, 'strong-pair': 1, 'AK': 1, 'AQ': 1 };
   function isStrong(hand) { return !!STRONG[root.Explain.classify(hand).cat]; }
   /* level: 1 = single-raised pot, 2 = 3-bet pot, 3 = 4-bet pot. Non-premium hands realize less in re-raised pots. */
   function eqr(table, hero, villain, initiative, hand, level) {
     const ip = postIdx(table, hero) > postIdx(table, villain);
     let e = ip ? 1.0 : 0.82;
-    if (initiative) e += 0.05;
+    if (initiative) e += 0.02;
     let hm = handMod(hand);
     if (table === 'hu') hm = 0.5 + 0.5 * hm; // heads-up ranges are so wide that "weak" hand types are closer to average
     e *= hm;
-    if (!isStrong(hand)) { if (level === 2) e *= 0.88; else if (level === 3) e *= 0.8; }
+    if (!isStrong(hand)) { const sp = SPEC[root.Explain.classify(hand).cat]; if (level === 2) e *= sp ? 0.94 : 0.85; else if (level === 3) e *= sp ? 0.8 : 0.83; }
     return e;
   }
   function seedOf(str) { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
@@ -68,13 +71,15 @@
      stack-to-pot ratio falls, and the edge counts in full only for clear favourites (>= 75% realized). */
   function post(e, eq, pot, behind) {
     const share = Math.min(0.97, e * eq);
+    // speculative hands with stacks behind win a little extra on later streets (sets, straights, flushes)
+    let spec = 0; if (behind > 0 && curHand) spec = (SPEC_IV[root.Explain.classify(curHand).cat] || 0) * Math.min(behind, 10 * pot);
     const edge = share - 0.5;
     let iv = 0;
     if (edge > 0 && behind > 0) {
-      const phi = Math.min(1, 0.25 + 1.5 * pot / behind);
-      iv = behind * phi * edge * Math.min(1, edge / 0.25); // ~half the edge survives once only strong hands put stacks in
+      const phi = Math.min(1, 0.062 + 0.6 * pot / behind);
+      iv = behind * phi * edge * Math.min(1, edge / 0.362); // ~half the edge survives once only strong hands put stacks in
     }
-    return share * (pot - rake(pot)) + iv;
+    return share * (pot - rake(pot)) + iv + spec;
   }
   /* post() against a known villain range. Strong hands also get stacks in against the villain's own strong
      hands (the part of the range that never folds, STACKOFF): that value is credited when it beats the
@@ -88,7 +93,7 @@
     const top = scale(range, STACKOFF), mt = mass(top, ids);
     if (!(mt > 0)) return v;
     const p = mt / (mass(range, ids) || 1e-9);
-    const ivStack = p * Math.max(0, E.equity(ids, top, SAMPLES, seed + 7777) - 0.5) * 2 * behind * 0.7;
+    const ivStack = p * Math.max(0, E.equity(ids, top, SAMPLES, seed + 7777) - 0.5) * 2 * behind * 0.805;
     const base = share * (pot - rake(pot));
     return base + Math.max(v - base, ivStack);
   }
@@ -233,7 +238,7 @@
       for (const b of P.slice(P.indexOf(hero) + 1)) {
         const rs = findSpot(table, 'vsOpen', b, V);
         if (!rs) continue;
-        pNo *= 1 - 0.6 * mass(weightsOf(rs.strategy, 'raise'), heroIds) / RANDOM_MASS;
+        pNo *= 1 - 0.51 * mass(weightsOf(rs.strategy, 'raise'), heroIds) / RANDOM_MASS;
       }
       q = 1 - pNo;
     }
@@ -264,7 +269,7 @@
       const rs = findSpot(table, 'vsOpen', b, V);
       if (!rs) continue;
       const r3 = mass(weightsOf(rs.strategy, 'raise'), heroIds) / RANDOM_MASS, c3 = mass(weightsOf(rs.strategy, 'call'), heroIds) / RANDOM_MASS;
-      pNoBehind *= 1 - (0.5 * r3 + 0.15 * c3);
+      pNoBehind *= 1 - (0.8 * r3 + 0.15 * c3);
     }
     const qb = 1 - pNoBehind;
     const evRaise = isStrong(hand) ? evRaiseHU : (1 - qb) * evRaiseHU + qb * (-T);
@@ -312,7 +317,7 @@
       p4 = mass(weightsOf(my.strategy, 'raise', my.prior), heroIds) / m;
       pOc = mass(weightsOf(my.strategy, 'call', my.prior), heroIds) / m;
     }
-    const mw = 1 - 0.15 * pOc; // a multi-way pot realizes less
+    const mw = 1 - 0.21 * pOc; // a multi-way pot realizes less
     const evCallFlat = postVs(mw * eqr(table, hero, V, false, hand, 2), heroIds, threeR, seed + 3, 2 * T + R + dead + pOc * (T - R), STACK - T) - T;
     const evCall = p4 * (-T) + (1 - p4) * evCallFlat;
     return { raise: evRaise, call: evCall, fold: -hp };
@@ -353,7 +358,7 @@
       if (rs) pNo *= 1 - 0.8 * mass(weightsOf(rs.strategy, 'raise'), heroIds) / RANDOM_MASS;
     }
     const q = 1 - pNo;
-    const evCall = (1 - q) * (postVs(0.85 * eqr(table, hero, O, false, hand, 1), heroIds, openR, seed + 3, 3 * R + dead, STACK - R) - R) + q * (-R);
+    const evCall = (1 - q) * (postVs(1.105 * eqr(table, hero, O, false, hand, 1), heroIds, openR, seed + 3, 3 * R + dead, STACK - R) - R) + q * (-R);
     return { raise: evRaise, call: evCall, fold: -hp };
   }
 
@@ -398,7 +403,8 @@
     return sbVsIso(spot.table, heroIds, hand, weightsOf(bb.strategy, 'raise'), seedOf(spot.id + hand));
   }
 
-  function rawEVs(spot, heroIds, hand) {
+  let curHand = null; // the hand being evaluated, for SPEC_IV
+  function rawEVs(spot, heroIds, hand) { curHand = hand;
     if (spot.type === 'rfi') {
       if (spot.table === 'hu') return evHUOpen(spot, heroIds, hand);
       const r = evRFI(spot, heroIds, hand);
@@ -418,7 +424,7 @@
      two actions is indifferent between them, so the shifts are fitted (least squares) to make the median
      EV gap zero on the hands GTO mixes. An action with no mixed hands is anchored instead by the threshold
      that best separates the hands that purely take it from the hands that purely take the residual action. */
-  const MODEL_VERSION = 2;
+  const MODEL_VERSION = 3;
   const CAL_KEY = 'preflop-evcal-v' + MODEL_VERSION + '-' + seedOf(JSON.stringify(root.RANGES)).toString(36);
   let calStore = null;
   function loadCal() { if (calStore) return calStore; try { calStore = JSON.parse(root.localStorage.getItem(CAL_KEY) || '{}'); } catch (e) { calStore = {}; } return calStore; }
@@ -458,6 +464,7 @@
       const t = bestThreshold(pos, neg);
       if (t !== null) pairs.push({ a, b: ref, g: t, n: 1 });
     }
+    const never = keys.filter(a => a !== ref && Object.keys(raw).every(h => !(spot.strategy[h][a] > 0)));
     const bias = {}; for (const k of keys) bias[k] = 0;
     for (let it = 0; it < 200; it++) {
       for (const k of keys) {
@@ -470,6 +477,8 @@
         if (den) bias[k] = num / den;
       }
     }
+    // an action GTO never takes with any hand: shift it so it is never above the best GTO action for any hand
+    for (const a of never) { let m = -1e9; for (const h in raw) { const f = spot.strategy[h]; let b = -1e9; for (const k of keys) if (k !== a && f[k] > 0) b = Math.max(b, raw[h][k] - bias[k]); m = Math.max(m, raw[h][a] - b); } bias[a] = m + 0.05; }
     return bias;
   }
   const calMem = {};
