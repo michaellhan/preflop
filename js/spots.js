@@ -40,9 +40,9 @@
     if (hero === 'BB') return threeBet <= 7.5 ? 21 : 25;
     return 17;
   }
-  // squeeze over an open and a call: small in position, much larger from the blinds
+  // squeeze over an open and a call: small in position, much larger from the blinds (a little smaller over a SB caller)
   function squeezeSize(hero, opener, mid) {
-    if (hero === 'BB') return opener === 'BTN' && mid === 'SB' ? 17 : 18;
+    if (hero === 'BB') return mid === 'SB' ? 17 : 18;
     if (hero === 'SB') return 16;
     return 9.5;
   }
@@ -77,10 +77,12 @@
     return { key, data: R.VS_3BET[key] };
   }
 
-  /* Cold 4-bet and squeeze spots have two players ahead of hero, so their ranges are keyed by hero group and
-     opener tier rather than by every seat combination (see ranges.js). BTN open + SB action has its own BB chart. */
-  function multiKey(hero, opener, mid) {
-    if (hero === 'BB' && opener === 'BTN' && mid === 'SB') return 'BB_vs_BTN_SB';
+  /* Cold 4-bet and squeeze spots have two players ahead of hero. Every 6-max seat combination has its own chart
+     (hero_vs_opener_mid); 9-max combinations with no 6-max equivalent (e.g. two early seats) fall back to charts
+     keyed by hero group and opener tier. */
+  function multiKey(data, hero, opener, mid) {
+    const exact = classOf(hero) + '_vs_' + classOf(opener) + '_' + classOf(mid);
+    if (data[exact] && classOf(opener) !== classOf(mid) && classOf(mid) !== classOf(hero)) return exact;
     const g = hero === 'SB' || hero === 'BB' ? hero : 'IP';
     const oc = classOf(opener);
     return g + '_vs_' + (oc === 'UTG' || oc === 'HJ' ? 'EP' : 'LP');
@@ -220,7 +222,7 @@
           const mid = P[m];
           for (let h = m + 1; h < P.length; h++) {
             const hero = P[h];
-            const key = multiKey(hero, opener, mid);
+            const key = multiKey(data, hero, opener, mid);
             if (!data[key]) continue;
             const open = openSize(opener);
             const seats = baseSeats(P);

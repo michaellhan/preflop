@@ -11,7 +11,7 @@
   'use strict';
   const H = root.Hands, S = root.Spots, E = root.Equity;
   let SAMPLES = 1200;
-  const CAL_SAMPLES = 200;
+  const CAL_SAMPLES = 200, LIMP_SAMPLES = 600;
 
   function findSpot(table, type, hero, villain) {
     return S.getSpots(table).find(s => s.type === type && s.hero === hero && (s.villain || null) === (villain || null));
@@ -172,15 +172,35 @@
 
   /* Isolation raise over a SB limp and the SB's re-raise: 3bb / 15bb in 6-max and 9-max, 4bb / 12bb heads-up. */
   function isoSizes(table) { return table === 'hu' ? [4, 12] : [S.ISO_SIZE, S.ISO_3BET_SIZE]; }
+  /* The BB's answer to the SB's limp-3-bet to Y: it jams JAM_VS_4BET hands and calls with the part of its
+     raising range whose (in-position) realized equity vs the SB's 3-bet range beats the price. Cached per table. */
+  const bbVs3Mem = {}, BB3_NEED = 0.85, LIMP_SUITED = 1.1;
+  function bbVsLimp3(table) {
+    if (bbVs3Mem[table]) return bbVs3Mem[table];
+    const [X, Y] = isoSizes(table), need = BB3_NEED * (Y - X) / (2 * Y);
+    const bb = findSpot(table, 'vsLimp', 'BB', 'SB'), iso = findSpot(table, 'vsLimp', 'SB', 'BB');
+    const isoR = weightsOf(bb.strategy, 'raise'), threeR = iso ? weightsOf(iso.strategy, 'raise', iso.prior) : scale(SB_LIMP, SB_3BET_ISO);
+    const jamR = scale(isoR, JAM_VS_4BET), callR = {};
+    for (const h in isoR) {
+      const c = fixedCards(h), f = isoR[h] - (jamR[h] || 0);
+      if (f > 0 && eqr(table, 'BB', 'SB', false, h, 2) * E.equity([E.cid(c[0]), E.cid(c[1])], threeR, 400, seedOf(h + 'bb3')) > need) callR[h] = f;
+    }
+    return (bbVs3Mem[table] = { isoR, jamR, callR });
+  }
   /* SB, having limped, faces the BB's isolation raise to X: 3-bet to Y / call / fold. */
-  function sbVsIso(table, heroIds, hand, isoR, seed) {
-    const [X, Y] = isoSizes(table);
+  function sbVsIso(table, heroIds, hand, seed) {
+    const [X, Y] = isoSizes(table), { isoR, jamR, callR } = bbVsLimp3(table);
     const evFold = -1;
-    const evCall = postVs(eqr(table, 'SB', 'BB', false, hand, 1), heroIds, isoR, seed, 2 * X, STACK - X) - X;
-    // limp-3-bet to Y: the BB folds ~50%, calls ~40%, jams ~10% (approximate)
-    const jamR = scale(isoR, JAM_VS_4BET);
-    const evVsJam = mass(jamR, heroIds) > 0 ? Math.max(-Y, allIn(E.equity(heroIds, jamR, SAMPLES, seed + 2), 2 * STACK) - STACK) : -Y;
-    const ev3 = 0.5 * X + 0.4 * (postVs(eqr(table, 'SB', 'BB', true, hand, 2), heroIds, isoR, seed + 1, 2 * Y, STACK - Y) - Y) + 0.1 * evVsJam;
+    // calling keeps the SPR deep (~16): suited hands realize extra through flushes and backdoors (LIMP_SUITED)
+    const evCall = postVs((hand[2] === 's' ? LIMP_SUITED : 1) * eqr(table, 'SB', 'BB', false, hand, 1), heroIds, isoR, seed, 2 * X, STACK - X) - X;
+    // limp-3-bet to Y: the BB folds, calls (callR) or jams (jamR), with card removal
+    const mAll = mass(isoR, heroIds) || 1e-9, mJ = mass(jamR, heroIds), mC = mass(callR, heroIds);
+    const evVsJam = mJ > 0 ? Math.max(-Y, allIn(E.equity(heroIds, jamR, SAMPLES, seed + 2), 2 * STACK) - STACK) : -Y;
+    // called, the SPR is under 3: no set-mining / draw implied value (SPEC_IV) for speculative hands
+    const ch = curHand; curHand = null;
+    const evVsCall = mC > 0 ? postVs(eqr(table, 'SB', 'BB', true, hand, 2), heroIds, callR, seed + 1, 2 * Y, STACK - Y) - Y : 0;
+    curHand = ch;
+    const ev3 = (1 - (mJ + mC) / mAll) * X + mC / mAll * evVsCall + mJ / mAll * evVsJam;
     return { raise: ev3, call: evCall, fold: evFold };
   }
 
@@ -195,7 +215,7 @@
       const pIso = mass(isoR, heroIds) / RANDOM_MASS;
       let ev = (1 - pIso) * (postVs(eqr(table, 'SB', 'BB', false, hand, 1), heroIds, checkR, seed, 2, STACK - 1) - 1);
       if (pIso > 0) {
-        const r = sbVsIso(table, heroIds, hand, isoR, seed + 1);
+        const r = sbVsIso(table, heroIds, hand, seed + 1);
         const f = iso ? iso.strategy[hand] : null;
         ev += pIso * (f && (f.raise + f.call + f.fold) > 0 ? f.raise * r.raise + f.call * r.call + f.fold * r.fold : Math.max(r.raise, r.call, r.fold));
       }
@@ -397,11 +417,8 @@
     return { raise: evRaise, limp: evLimp(spot, heroIds, hand), fold: -0.5 };
   }
 
-  /* SB, having limped, facing the BB's raise to 4bb (any table). */
-  function evSBIso(spot, heroIds, hand) {
-    const bb = findSpot(spot.table, 'vsLimp', 'BB', 'SB');
-    return sbVsIso(spot.table, heroIds, hand, weightsOf(bb.strategy, 'raise'), seedOf(spot.id + hand));
-  }
+  /* SB, having limped, facing the BB's isolation raise (3bb, or 4bb heads-up). */
+  function evSBIso(spot, heroIds, hand) { return sbVsIso(spot.table, heroIds, hand, seedOf(spot.id + hand)); }
 
   let curHand = null; // the hand being evaluated, for SPEC_IV
   function rawEVs(spot, heroIds, hand) { curHand = hand;
@@ -414,8 +431,9 @@
     if (spot.type === 'vs3bet') return evVs3bet(spot, heroIds, hand);
     if (spot.type === 'cold4') return evCold4(spot, heroIds, hand);
     if (spot.type === 'squeeze') return evSqueeze(spot, heroIds, hand);
-    if (spot.hero === 'SB') return evSBIso(spot, heroIds, hand);
-    return evVsLimp(spot, heroIds, hand);
+    // limp-pot EVs hinge on small edges in a few equities: never estimate them from fewer than LIMP_SAMPLES runouts
+    const keep = SAMPLES; SAMPLES = Math.max(SAMPLES, LIMP_SAMPLES);
+    try { return spot.hero === 'SB' ? evSBIso(spot, heroIds, hand) : evVsLimp(spot, heroIds, hand); } finally { SAMPLES = keep; }
   }
 
   /* ---------- per-spot calibration ----------
@@ -424,7 +442,7 @@
      two actions is indifferent between them, so the shifts are fitted (least squares) to make the median
      EV gap zero on the hands GTO mixes. An action with no mixed hands is anchored instead by the threshold
      that best separates the hands that purely take it from the hands that purely take the residual action. */
-  const MODEL_VERSION = 3;
+  const MODEL_VERSION = 4;
   const CAL_KEY = 'preflop-evcal-v' + MODEL_VERSION + '-' + seedOf(JSON.stringify(root.RANGES)).toString(36);
   let calStore = null;
   function loadCal() { if (calStore) return calStore; try { calStore = JSON.parse(root.localStorage.getItem(CAL_KEY) || '{}'); } catch (e) { calStore = {}; } return calStore; }
