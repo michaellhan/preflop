@@ -10,7 +10,7 @@
   /* ---------------- state ---------------- */
   const defaults = () => ({
     table: '6max',
-    types: { rfi: true, vsOpen: true, vs3bet: true, cold4: true, squeeze: true, vsLimp: false },
+    types: { rfi: true, vsOpen: true, vs3bet: true, cold4: true, squeeze: true, vsLimp: true },
     positions: { '6max': null, '9max': null }, // null = all
     dealing: 'weighted',
     showRange: true,
@@ -658,7 +658,7 @@
     info.innerHTML = '<div class="muted">' + HOVER + ' a hand for its frequencies and the reasoning.</div>';
     $('#chart-why').classList.add('hidden');
     const src = $('#chart-source');
-    src.textContent = 'Data key: ' + spot.source + (spot.table === '9max' && /UTG\+|LJ/.test(spot.hero + (spot.villain || '') + (spot.opener || '')) ? ' (9-max early positions reuse the structurally equivalent 6-max strategy, see About)' : '') + (spot.opener ? ' (shared by every seat in your group facing this opener tier, see About)' : '');
+    src.textContent = 'Data key: ' + spot.source + (spot.table === '9max' && !/EP9/.test(spot.source) && /UTG\+|LJ/.test(spot.hero + (spot.villain || '') + (spot.opener || '')) ? ' (9-max early positions reuse the structurally equivalent 6-max strategy, see About)' : '') + (spot.opener && !/BTN_SB/.test(spot.source) ? ' (shared by every seat in your group facing this opener tier, see About)' : '');
   }
   /* One chart for every position: each hand is coloured by the earliest seat that raises it (later seats are
      looser); hover shows every seat's frequency. */

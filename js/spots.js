@@ -17,17 +17,36 @@
   function classOf(pos) {
     return (pos === 'UTG+1' || pos === 'UTG+2' || pos === 'LJ') ? 'UTG' : pos;
   }
-  function openSize(pos) { return pos === 'SB' ? 3 : 2.5; }
+  /* Opener tier for the vs-open / vs-3-bet charts. 9-max UTG and UTG+1 open far tighter than 6-max UTG, so
+     their opponents use the *_vs_EP9 charts; UTG..UTG+2 answer a 3-bet with the EP9_* charts. */
+  function openerClassVsOpen(table, pos) {
+    return table === '9max' && (pos === 'UTG' || pos === 'UTG+1') ? 'EP9' : classOf(pos);
+  }
+  function openerClassVs3bet(table, pos) {
+    return table === '9max' && (pos === 'UTG' || pos === 'UTG+1' || pos === 'UTG+2') ? 'EP9' : classOf(pos);
+  }
+  /* Sizes follow the reference solution the ranges were checked against (see About page). */
+  function openSize(pos) { return 2.5; }
   function threeBetSize(threeBettor, openerPos) {
-    if (threeBettor === 'BB') return openerPos === 'SB' ? 10 : 11;
-    if (threeBettor === 'SB') return 10;
+    if (threeBettor === 'BB') return openerPos === 'SB' ? 7.5 : 12.5;
+    if (threeBettor === 'SB') return 11.5;
     return 7.5;
   }
-  function fourBetSize(threeBet) { return Math.round(threeBet * 2.25); }
-  // a cold 4-bet is a little bigger than a 4-bet by the opener: the 3-bettor is often in position
-  function cold4BetSize(threeBet) { return Math.round(threeBet * 2.4); }
-  // squeeze: about 4x the open plus one open per caller, a bit more out of position
-  function squeezeSize(hero) { return (hero === 'SB' || hero === 'BB') ? 12 : 11; }
+  // 4-bets: ~23bb over an in-position 7.5bb 3-bet, ~25bb over a blind 3-bet
+  function fourBetSize(threeBet) { return threeBet <= 7.5 ? 23 : 25; }
+  // cold 4-bet: 17bb in position, larger from the blinds (out of position against two players)
+  function cold4BetSize(threeBet, hero) {
+    if (hero === 'SB') return 23;
+    if (hero === 'BB') return threeBet <= 7.5 ? 21 : 25;
+    return 17;
+  }
+  // squeeze over an open and a call: small in position, much larger from the blinds
+  function squeezeSize(hero, opener, mid) {
+    if (hero === 'BB') return opener === 'BTN' && mid === 'SB' ? 17 : 18;
+    if (hero === 'SB') return 16;
+    return 9.5;
+  }
+  const ISO_SIZE = 3, ISO_3BET_SIZE = 15; // BB raises a SB limp to 3bb; the SB re-raises to 15bb
 
   const TYPE_META = {
     rfi:    { key: 'rfi',    name: 'Open (RFI)',        short: 'RFI' },
@@ -49,18 +68,19 @@
 
   function lookupVsOpen(heroClass, villainClass) {
     let key = heroClass + '_vs_' + villainClass;
-    if (heroClass === 'UTG' && villainClass === 'UTG') key = 'HJ_vs_UTG';
+    if (heroClass === 'UTG' && (villainClass === 'UTG' || villainClass === 'EP9')) key = 'HJ_vs_' + villainClass;
     return { key, data: R.VS_OPEN[key] };
   }
   function lookupVs3bet(openerClass, threeBettorClass) {
     let key = openerClass + '_vs_' + threeBettorClass;
-    if (openerClass === 'UTG' && threeBettorClass === 'UTG') key = 'UTG_vs_HJ';
+    if ((openerClass === 'UTG' || openerClass === 'EP9') && threeBettorClass === 'UTG') key = openerClass + '_vs_HJ';
     return { key, data: R.VS_3BET[key] };
   }
 
   /* Cold 4-bet and squeeze spots have two players ahead of hero, so their ranges are keyed by hero group and
-     opener tier rather than by every seat combination (see ranges.js). */
-  function multiKey(hero, opener) {
+     opener tier rather than by every seat combination (see ranges.js). BTN open + SB action has its own BB chart. */
+  function multiKey(hero, opener, mid) {
+    if (hero === 'BB' && opener === 'BTN' && mid === 'SB') return 'BB_vs_BTN_SB';
     const g = hero === 'SB' || hero === 'BB' ? hero : 'IP';
     const oc = classOf(opener);
     return g + '_vs_' + (oc === 'UTG' || oc === 'HJ' ? 'EP' : 'LP');
@@ -96,14 +116,14 @@
         table: tableKey, type: 'rfi', hero, villain: null,
         title: hero + ' open',
         description: (foldedBefore === 0 ? 'You are first to act' : 'Everyone folds to you') + ' in the ' + POSITION_NAMES[hero] + '.',
-        question: 'Raise to ' + size + 'bb, call, or fold?',
+        question: 'Raise to ' + size + 'bb, ' + (hero === 'SB' ? 'limp' : 'call') + ', or fold?',
         actions: [
           { key: 'raise', label: 'Raise ' + size + 'bb', color: COLORS.raise },
-          { key: 'limp', label: 'Call', color: COLORS.limp },
+          { key: 'limp', label: hero === 'SB' ? 'Limp' : 'Call', color: COLORS.limp },
           { key: 'fold', label: 'Fold', color: COLORS.fold }
         ],
-        // no limping range: open-limping is never part of the no-ante solver strategy (see About page)
-        strategy: strategyFor({ actions: ['raise', 'limp', 'fold'], raise: rfiData[hero], limp: '' }),
+        // only the SB has a limping range; open-limping from UTG..BTN is never part of the solver strategy
+        strategy: strategyFor({ actions: ['raise', 'limp', 'fold'], raise: rfiData[hero], limp: rfiData[hero + '_LIMP'] || '' }),
         source: 'RFI ' + tableKey + ' ' + hero,
         seats, pot: 1.5
       });
@@ -115,7 +135,7 @@
       if (villain === 'BB') continue;
       for (let h = v + 1; h < P.length; h++) {
         const hero = P[h];
-        const look = lookupVsOpen(classOf(hero), classOf(villain));
+        const look = lookupVsOpen(classOf(hero), openerClassVsOpen(tableKey, villain));
         if (!look.data) continue;
         const open = openSize(villain);
         const tb = threeBetSize(hero, villain);
@@ -153,7 +173,7 @@
       if (hero === 'BB') continue;
       for (let v = h + 1; v < P.length; v++) {
         const villain = P[v];
-        const look = lookupVs3bet(classOf(hero), classOf(villain));
+        const look = lookupVs3bet(openerClassVs3bet(tableKey, hero), classOf(villain));
         if (!look.data) continue;
         const openStrat = strategyFor({ actions: ['raise', 'fold'], raise: rfiData[hero] });
         const prior = {};
@@ -200,7 +220,7 @@
           const mid = P[m];
           for (let h = m + 1; h < P.length; h++) {
             const hero = P[h];
-            const key = multiKey(hero, opener);
+            const key = multiKey(hero, opener, mid);
             if (!data[key]) continue;
             const open = openSize(opener);
             const seats = baseSeats(P);
@@ -210,7 +230,7 @@
             let size, desc, actions, title;
             if (type === 'cold4') {
               const tb = threeBetSize(mid, opener);
-              size = cold4BetSize(tb);
+              size = cold4BetSize(tb, hero);
               seats[mid] = { status: '3bet', bet: tb, label: '3-Bet ' + tb };
               title = hero + ' vs ' + opener + ' open + ' + mid + ' 3-bet';
               desc = POSITION_NAMES[opener] + ' raises to ' + open + 'bb, the ' + POSITION_NAMES[mid] + ' 3-bets to ' + tb + 'bb' + (h - m > 1 ? ', everyone else folds to you' : '') + ' in the ' + POSITION_NAMES[hero] + '.';
@@ -220,7 +240,7 @@
                 { key: 'fold', label: 'Fold', color: COLORS.fold }
               ];
             } else {
-              size = squeezeSize(hero);
+              size = squeezeSize(hero, opener, mid);
               seats[mid] = { status: 'call', bet: open, label: 'Call ' + open };
               title = hero + ' vs ' + opener + ' open + ' + mid + ' call';
               desc = POSITION_NAMES[opener] + ' raises to ' + open + 'bb, the ' + POSITION_NAMES[mid] + ' calls' + (h - m > 1 ? ', everyone else folds to you' : '') + ' in the ' + POSITION_NAMES[hero] + '.';
@@ -248,7 +268,7 @@
       }
     }
 
-    // ---- BB vs SB limp ----
+    // ---- BB vs SB limp, and the SB facing the BB's raise after limping ----
     {
       const seats = baseSeats(P);
       for (const p of P) if (p !== 'SB' && p !== 'BB') seats[p] = { status: 'fold', bet: 0, label: 'Fold' };
@@ -259,14 +279,39 @@
         table: tableKey, type: 'vsLimp', hero: 'BB', villain: 'SB',
         title: 'BB vs SB limp',
         description: 'Everyone folds, the small blind limps in. You are in the big blind with the option.',
-        question: 'Raise to 4bb (isolate) or check?',
+        question: 'Raise to ' + ISO_SIZE + 'bb (isolate) or check?',
         actions: [
-          { key: 'raise', label: 'Raise 4bb', color: COLORS.raise },
+          { key: 'raise', label: 'Raise ' + ISO_SIZE + 'bb', color: COLORS.raise },
           { key: 'check', label: 'Check', color: COLORS.check }
         ],
         strategy: strategyFor({ actions: ['raise', 'check'], raise: R.VS_LIMP.BB_vs_SB.raise }),
         source: 'VS_LIMP BB_vs_SB',
         seats, pot: 2
+      });
+    }
+    {
+      const limpStrat = strategyFor({ actions: ['raise', 'limp', 'fold'], raise: rfiData.SB, limp: rfiData.SB_LIMP });
+      const prior = {};
+      for (const hd of H.ALL_HANDS) prior[hd] = limpStrat[hd].limp;
+      const seats = baseSeats(P);
+      for (const p of P) if (p !== 'SB' && p !== 'BB') seats[p] = { status: 'fold', bet: 0, label: 'Fold' };
+      seats.SB = { status: 'hero', bet: 1, label: 'Limp 1' };
+      seats.BB = { status: 'raise', bet: ISO_SIZE, label: 'Raise ' + ISO_SIZE };
+      spots.push({
+        id: tableKey + ':vsLimp:SB:BB',
+        table: tableKey, type: 'vsLimp', hero: 'SB', villain: 'BB',
+        title: 'SB vs BB raise after limp',
+        description: 'Everyone folds, you limp from the small blind and the big blind raises to ' + ISO_SIZE + 'bb.',
+        question: '3-bet to ' + ISO_3BET_SIZE + 'bb, call, or fold?',
+        actions: [
+          { key: 'raise', label: '3-Bet ' + ISO_3BET_SIZE + 'bb', color: COLORS.raise },
+          { key: 'call', label: 'Call', color: COLORS.call },
+          { key: 'fold', label: 'Fold', color: COLORS.fold }
+        ],
+        strategy: strategyFor({ actions: ['raise', 'call', 'fold'], raise: R.VS_LIMP.SB_vs_ISO.raise, call: R.VS_LIMP.SB_vs_ISO.call }),
+        source: 'VS_LIMP SB_vs_ISO',
+        prior, // only hands the SB limped can reach this spot
+        seats, pot: 1 + ISO_SIZE
       });
     }
     return spots;
@@ -354,5 +399,5 @@
     return spotCache[tableKey];
   }
 
-  root.Spots = { TABLES, POSITION_NAMES, TYPE_META, COLORS, classOf, getSpots, openSize, threeBetSize, cold4BetSize, squeezeSize };
+  root.Spots = { TABLES, POSITION_NAMES, TYPE_META, COLORS, classOf, getSpots, openSize, threeBetSize, fourBetSize, cold4BetSize, squeezeSize, ISO_SIZE, ISO_3BET_SIZE };
 })(typeof window !== 'undefined' ? window : globalThis);

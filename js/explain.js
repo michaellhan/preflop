@@ -69,6 +69,11 @@
 
   /* ---------- decision reasons ---------- */
   function rfiReason(spot, c, hand, primary, freqs) {
+    if (spot.hero === 'SB' && primary === 'limp') {
+      const strong = c.cat === 'premium-pair' || c.cat === 'strong-pair' || c.cat === 'AK';
+      return strong ? 'A slow-play limp: the SB limps a few of its best hands so the BB cannot raise every limp, and it re-raises when the BB isolates.'
+        : 'The SB limps hands that are too good to fold but play poorly in a raised pot out of position: completing for half a blind sees a cheap flop, and the BB checks behind more than half the time.';
+    }
     const n = behind(spot.table, spot.hero), pc = posClass(spot.hero);
     const where = pc === 'early' ? 'From early position with ' + n + ' players still to act, ' : pc === 'middle' ? 'From the hijack with ' + n + ' players behind, ' : spot.hero === 'CO' ? 'From the cutoff with only the button and the blinds behind, ' : spot.hero === 'BTN' ? 'On the button, with only the blinds left and guaranteed position, ' : 'From the small blind, with only the big blind left but out of position for the whole hand, ';
     if (primary === 'raise') {
@@ -118,7 +123,7 @@
   function vsOpenReason(spot, c, hand, primary, freqs) {
     const V = spot.villain, hero = spot.hero;
     const vc = posClass(V), ip = inPosition(spot.table, hero, V);
-    const vDesc = vc === 'early' ? 'an early-position open (a tight range of about 15-18%)' : vc === 'middle' ? 'a hijack open (about 22%)' : V === 'CO' ? 'a cutoff open (about 29%)' : V === 'BTN' ? 'a button open (about 45%)' : 'a small-blind open (about 44%)';
+    const vDesc = vc === 'early' ? 'an early-position open (a tight range of about 15-18%)' : vc === 'middle' ? 'a hijack open (about 22%)' : V === 'CO' ? 'a cutoff open (about 29%)' : V === 'BTN' ? 'a button open (about 45%)' : 'a small-blind open (about 36%, plus limps)';
     const heroDesc = hero === 'BB' ? (V === 'SB' ? 'BB vs SB: you close the action with position, so you defend very wide.' : 'In the BB you close the action at a good price, but play out of position.') : hero === 'SB' ? 'The SB is out of position with the BB still behind, so it mostly 3-bets or folds.' : ip ? (behind(spot.table, hero) > 2 ? 'You have position, but ' + (behind(spot.table, hero) - 2) + ' player(s) plus the blinds behind can squeeze.' : 'You have position and only the blinds behind.') : '';
     let why = '';
     if (primary === 'raise') {
@@ -299,6 +304,11 @@
   }
 
   function vsLimpReason(spot, c, hand, primary, freqs) {
+    if (spot.hero === 'SB') {
+      if (primary === 'raise') return c.cat === 'premium-pair' || c.cat === 'strong-pair' || c.cat === 'AK' || c.cat === 'AQ' ? 'The limp-raise is for value: the SB limped a strong hand as a trap and now builds the pot against the BB\'s wide isolation range.' : 'A limp-3-bet bluff: the BB isolates very wide (~41%), so a re-raise with a hand that has blockers or playability folds out much of that range.';
+      if (primary === 'call') return 'The SB calls the small isolation raise: it is getting a good price (2bb more to win a 4bb pot) against a wide range, even though it plays the flop out of position.';
+      return 'The weakest limps give up against the raise: they have too little equity to play a bigger pot out of position.';
+    }
     const junk = c.cat === 'offsuit-junk' || c.cat === 'offsuit-connector' || c.cat === 'offsuit-king' || c.cat === 'weak-offsuit-ace';
     if (primary === 'raise' && junk && !c.pair) return 'The raise is polar: the weakest offsuit hands realize almost nothing if they check, so they raise as bluffs and win the pot when the limper folds.';
     if (primary === 'raise') return 'Raising isolates the SB\'s capped limping range for value: you build a pot in position with a hand that ' + (c.pair || c.cat.indexOf('ace') >= 0 || c.cat.indexOf('broadway') >= 0 ? 'has real showdown value' : 'plays well after the flop') + '.';
@@ -306,22 +316,22 @@
   }
 
   /* Open-limping: never part of the no-ante GTO strategy at 6-max / 9-max. */
-  const LIMP_NOTE = 'Just calling the big blind (open-limping) is not part of the GTO strategy here: in no-ante cash games solvers raise or fold first in from every seat (even the SB limps only a sliver of hands). A limp wins no pot outright, lets the players behind isolate you, and leaves you with a capped range.';
+  const LIMP_NOTE = 'Just calling the big blind (open-limping) is not part of the GTO strategy here: in no-ante cash games solvers raise or fold first in from every seat (only the SB limps part of its range). A limp wins no pot outright, lets the players behind isolate you, and leaves you with a capped range.';
 
   /* ---------- comparisons that teach the pattern ---------- */
   function comparison(spot, c, hand, primary) {
     if (spot.type === 'vsOpen' && (c.cat === 'wheel-suited-ace' || c.cat === 'mid-suited-ace'))
-      return 'A2s-A5s 3-bet more than A6s-A9s: the wheel aces block AA/AK and lose little when 4-bet, while A6s-A9s dominate more of the calling range and prefer to call.';
+      return 'Against early opens A2s-A5s are the suited aces that 3-bet (they block AA/AK and fold cheaply to a 4-bet) while A6s-A9s mostly fold; against wider HJ/CO opens A6s-A9s 3-bet just as often, since they now have value against the hands that call.';
     if (spot.type === 'vsOpen' && c.cat === 'small-pair')
-      return 'Small pairs fold to early opens but call late ones: a tight range rarely pays off a set, a wide one often does and is often behind unimproved.';
+      return 'Small pairs mostly fold from the HJ and CO but call from the button and the blinds: with players still to act behind, a flat invites a squeeze, while closing the action (or having only the blinds behind) makes set-mining cheap.';
     if (spot.type === 'vsOpen' && c.cat === 'offsuit-broadway')
       return 'KQo/KJo/QJo fold to early opens but continue vs late ones: the tighter the range, the more AK/AQ/AJ/KQ dominate them.';
-    if (spot.type === 'vsOpen' && (c.cat === 'suited-connector' || c.cat === 'suited-gapper') && spot.hero === 'SB')
-      return 'Suited connectors flat freely in position but only rarely from the SB: out of position with the BB behind, the SB mostly 3-bets or folds and keeps just a thin flatting range (more of it against late opens).';
+    if (spot.type === 'vsOpen' && (c.cat === 'suited-connector' || c.cat === 'suited-gapper') && spot.hero !== 'BB')
+      return 'Facing an open, suited connectors are mostly 3-bet-or-fold hands from every seat except the BB: the HJ, CO, button and SB all keep only thin flatting ranges, because a player behind can still squeeze, while the BB closes the action at the best price and calls them freely.';
     if (spot.type === 'rfi' && posClass(spot.hero) === 'early' && (c.cat === 'suited-king' || c.cat === 'suited-connector' || c.cat === 'weak-offsuit-ace'))
-      return 'The same hand opens from the cutoff or button: ranges widen from ~17% UTG to ~43% on the button as fewer players remain behind.';
+      return 'The same hand opens from the cutoff or button: ranges widen from ~18% UTG to ~42% on the button as fewer players remain behind.';
     if (spot.type === 'vs3bet' && c.cat === 'wheel-suited-ace')
-      return 'A5s/A4s are 4-bet bluffs, A9s-A6s are not: blocking AA/AK matters most against a narrow continuing range.';
+      return 'A5s/A4s are the most common 4-bet bluffs, with some A6s-A9s and small suited kings mixed in against late 3-bets: blocking AA/AK matters most against a narrow continuing range.';
     if (spot.type === 'vs3bet' && (c.cat === 'AK' || c.cat === 'premium-pair'))
       return '4-bet value is QQ+/AK, with JJ and TT mixed in more often as the 3-bettor\'s range widens: only strong hands continue against a 4-bet.';
     if (spot.type === 'cold4' && (c.cat === 'strong-pair' || c.cat === 'AQ'))
@@ -333,7 +343,7 @@
     if (spot.type === 'vsOpen' && spot.hero === 'BB' && spot.villain === 'SB')
       return 'BB vs SB is the widest defence in poker: you close the action, get a good price and have position.';
     if (spot.type === 'rfi' && spot.hero === 'SB' && (c.cat === 'offsuit-junk' || c.cat === 'offsuit-connector'))
-      return 'The SB opens almost as wide as the button (~44%): only one player is left and the 3bb raise usually wins the pot outright.';
+      return 'The SB plays about half its hands: it raises ~36% and limps ~15%, folding the rest. With only the BB left it can play wide, but out of position it keeps many middling hands in a cheap limped pot instead of raising them.';
     return null;
   }
 
@@ -371,7 +381,7 @@
     if (spot.table === 'hu') {
       const played = spot.actions.filter(a => freqs[a.key] > 0);
       return { what: '', why: huReason(spot, c, hand, primary), mix: played.length > 1 ? played.map(a => a.label.replace(/ [\d.~]+bb$/, '') + ' ' + pct(freqs[a.key])).join(' / ') : null,
-        compare: spot.type === 'rfi' ? 'Heads-up the SB is the button: it raises or limps about 87% of hands, far more than the 44% it opens at a full table.' : (spot.type === 'vsOpen' ? 'The BB defends about two-thirds of hands here, and 3-bets more than at 6-max because it is out of position.' : null),
+        compare: spot.type === 'rfi' ? 'Heads-up the SB is the button: it raises or limps about 87% of hands, far more than the ~51% it plays (36% raise, 15% limp) at a full table.' : (spot.type === 'vsOpen' ? 'The BB defends about two-thirds of hands here, and 3-bets more than at 6-max because it is out of position.' : null),
         cat: c.cat, catName: CAT_NAME[c.cat] };
     }
     const played = spot.actions.filter(a => freqs[a.key] > 0);
@@ -388,7 +398,7 @@
     if (played.length > 1) {
       mix = played.map(a => label(a.key) + ' ' + pct(freqs[a.key])).join(' / ') + '. The options are close in EV; mixing keeps the range balanced.';
     }
-    const cmp = chosen === 'limp' && spot.type === 'rfi' ? LIMP_NOTE : comparison(spot, c, hand, primary);
+    const cmp = chosen === 'limp' && spot.type === 'rfi' && spot.hero !== 'SB' ? LIMP_NOTE : comparison(spot, c, hand, primary);
     return { what, why, mix, compare: cmp, cat: c.cat, catName: CAT_NAME[c.cat] };
   }
 

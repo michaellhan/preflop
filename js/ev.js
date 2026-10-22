@@ -59,8 +59,8 @@
   function seedOf(str) { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
 
   const STACK = 100;
-  /* Rake: 5% capped at 3bb, taken only from pots that see a flop (no flop, no drop). */
-  function rake(pot) { return Math.min(0.05 * pot, 3); }
+  /* Rake: 5% capped at 0.5bb (matches the reference solution the ranges were checked against), taken only from pots that see a flop (no flop, no drop). */
+  function rake(pot) { return Math.min(0.05 * pot, 0.5); }
   /* Value of seeing a flop: the realized share of the raked pot, plus implied value for hands that are
      well ahead of the villain's range (they win further bets from worse hands on later streets; with
      100bb stacks that is most of what strong hands earn). e = equity realization, behind = stack left.
@@ -103,8 +103,8 @@
     '98s': 0.1, '87s': 0.1, '76s': 0.1, '65s': 0.1, A5s: 0.3, A4s: 0.3, A3s: 0.2, A2s: 0.2, AJo: 0.15, KQo: 0.25 };
   // how a 4-bettor responds to a 5-bet jam
   const CALL_JAM = { AA: 1, KK: 1, QQ: 1, AKs: 1, AKo: 1, JJ: 0.5, AQs: 0.3 };
-  /* 6-max / 9-max: without an ante the solver SB practically never limps, so the BB-vs-limp spot faces a
-     typical limping range (weak-to-medium hands with a few traps) and these approximate responses. */
+  /* Fallback for a table whose SB has no limp range in ranges.js: a typical limping range (weak-to-medium
+     hands with a few traps) and these approximate responses. Tables with a real SB limp range use that. */
   const SB_LIMP = H.parseRange("AA:0.15, KK:0.15, AKs:0.1, 22-88, A2s-A9s:0.6, K2s-K9s:0.7, Q4s-QTs:0.7, J6s-JTs:0.7, T6s-T9s:0.7, 96s-98s:0.7, 85s-87s:0.7, 74s-76s:0.7, 64s-65s:0.7, 53s-54s:0.7, 43s:0.6, A2o-A9o:0.7, K7o-KTo:0.7, Q8o-QTo:0.7, J8o-JTo:0.7, T8o-T9o:0.7, 98o:0.7, 87o:0.6, 76o:0.5, 65o:0.4");
   const SB_3BET_ISO = { AA: 1, KK: 1, AKs: 1, A5s: 0.3, A4s: 0.3, A9o: 0.1, A8o: 0.1 };
   const SB_CALL_ISO = {};
@@ -119,7 +119,7 @@
 
   /* Hero (last aggressor, invested R before) 4-bets to F vs villain who 3-bet to T with range threeRange. */
   function fourBetEV(table, hero, villain, heroIds, hand, T, threeRange, dead, seed) {
-    const F = Math.round(T * 2.25);
+    const F = S.fourBetSize(T);
     const jamR = scale(threeRange, JAM_VS_4BET), callR = scale(threeRange, CALL_VS_4BET);
     const mAll = mass(threeRange, heroIds) || 1e-9, mJam = mass(jamR, heroIds), mCall = mass(callR, heroIds);
     const pJam = mJam / mAll, pCall = mCall / mAll, pFold = Math.max(0, 1 - pJam - pCall);
@@ -165,14 +165,17 @@
     return { raise: ev, fold: -hp };
   }
 
-  /* SB, having limped, faces the BB's raise to 4bb: 3-bet to 12bb / call / fold. */
+  /* Isolation raise over a SB limp and the SB's re-raise: 3bb / 15bb in 6-max and 9-max, 4bb / 12bb heads-up. */
+  function isoSizes(table) { return table === 'hu' ? [4, 12] : [S.ISO_SIZE, S.ISO_3BET_SIZE]; }
+  /* SB, having limped, faces the BB's isolation raise to X: 3-bet to Y / call / fold. */
   function sbVsIso(table, heroIds, hand, isoR, seed) {
+    const [X, Y] = isoSizes(table);
     const evFold = -1;
-    const evCall = postVs(eqr(table, 'SB', 'BB', false, hand, 1), heroIds, isoR, seed, 8, STACK - 4) - 4;
-    // limp-3-bet to 12bb: the BB folds ~50%, calls ~40%, jams ~10% (approximate)
+    const evCall = postVs(eqr(table, 'SB', 'BB', false, hand, 1), heroIds, isoR, seed, 2 * X, STACK - X) - X;
+    // limp-3-bet to Y: the BB folds ~50%, calls ~40%, jams ~10% (approximate)
     const jamR = scale(isoR, JAM_VS_4BET);
-    const evVsJam = mass(jamR, heroIds) > 0 ? Math.max(-12, allIn(E.equity(heroIds, jamR, SAMPLES, seed + 2), 2 * STACK) - STACK) : -12;
-    const ev3 = 0.5 * 4 + 0.4 * (postVs(eqr(table, 'SB', 'BB', true, hand, 2), heroIds, isoR, seed + 1, 24, STACK - 12) - 12) + 0.1 * evVsJam;
+    const evVsJam = mass(jamR, heroIds) > 0 ? Math.max(-Y, allIn(E.equity(heroIds, jamR, SAMPLES, seed + 2), 2 * STACK) - STACK) : -Y;
+    const ev3 = 0.5 * X + 0.4 * (postVs(eqr(table, 'SB', 'BB', true, hand, 2), heroIds, isoR, seed + 1, 2 * Y, STACK - Y) - Y) + 0.1 * evVsJam;
     return { raise: ev3, call: evCall, fold: evFold };
   }
 
@@ -247,7 +250,7 @@
     const evCallV = pC > 0 ? postVs(eqr(table, hero, V, true, hand, 2), heroIds, callR, seed + 1, 2 * T + dead, STACK - T) - T : 0;
     let ev4 = 0;
     if (pR > 0) {
-      const F = Math.round(T * 2.25);
+      const F = S.fourBetSize(T);
       const jamCall = scale(fourR, CALL_JAM);
       const pCallJam = mass(jamCall, heroIds) / (mass(fourR, heroIds) || 1e-9);
       const evJam = (1 - pCallJam) * (F + dead) + (pCallJam > 0 ? pCallJam * (allIn(E.equity(heroIds, jamCall, SAMPLES, seed + 2), 2 * STACK + dead) - STACK) : 0);
@@ -286,7 +289,7 @@
   const OPENER_VS_COLD4 = { AA: 1, KK: 1, AKs: 0.4, QQ: 0.2 };
   function evCold4(spot, heroIds, hand) {
     const table = spot.table, hero = spot.hero, O = spot.opener, V = spot.villain;
-    const R = S.openSize(O), T = S.threeBetSize(V, O), F = S.cold4BetSize(T), hp = posted(hero);
+    const R = S.openSize(O), T = S.threeBetSize(V, O), F = S.cold4BetSize(T, hero), hp = posted(hero);
     const dead = deadBlinds([hero, O, V]);
     const seed = seedOf(spot.id + hand);
     const threeR = weightsOf(findSpot(table, 'vsOpen', V, O).strategy, 'raise');
@@ -320,7 +323,7 @@
   const CALLER_VS_SQZ = { AA: 1, KK: 1, QQ: 0.6, JJ: 0.6, TT: 0.5, '99': 0.4, '88': 0.3, '77': 0.2, AKs: 1, AKo: 1, AQs: 0.5, AJs: 0.3, KQs: 0.4, KJs: 0.2, QJs: 0.2, JTs: 0.2, AQo: 0.2 };
   function evSqueeze(spot, heroIds, hand) {
     const table = spot.table, P = S.TABLES[table].positions, hero = spot.hero, O = spot.opener, C = spot.villain;
-    const R = S.openSize(O), Z = S.squeezeSize(hero), hp = posted(hero);
+    const R = S.openSize(O), Z = S.squeezeSize(hero, O, C), hp = posted(hero);
     const dead = deadBlinds([hero, O, C]);
     const seed = seedOf(spot.id + hand);
     const openR = weightsOf(findSpot(table, 'rfi', O, null).strategy, 'raise');
@@ -336,7 +339,7 @@
     if (pR > 0 && isStrong(hand)) {
       const jamCall = scale(oFour, CALL_JAM);
       const pCallJam = mass(jamCall, heroIds) / (mass(oFour, heroIds) || 1e-9);
-      const F = Math.round(Z * 2.25);
+      const F = S.fourBetSize(Z);
       evVs4 = Math.max(-Z, (1 - pCallJam) * (F + R + dead) + (pCallJam > 0 ? pCallJam * (allIn(E.equity(heroIds, jamCall, SAMPLES, seed + 1), 2 * STACK + R + dead) - STACK) : 0));
     }
     const cCont = scale(callerR, CALLER_VS_SQZ);
@@ -354,9 +357,9 @@
     return { raise: evRaise, call: evCall, fold: -hp };
   }
 
-  /* BB facing a SB limp: raise to 4bb or check. */
+  /* BB facing a SB limp: raise (isolate) or check. */
   function evVsLimp(spot, heroIds, hand) {
-    const table = spot.table;
+    const table = spot.table, [X, Y] = isoSizes(table);
     const seed = seedOf(spot.id + hand);
     const limpR = sbLimpRange(table);
     const iso = findSpot(table, 'vsLimp', 'SB', 'BB');
@@ -365,8 +368,8 @@
     const evCheck = postVs(eqr(table, 'BB', 'SB', false, hand, 1), heroIds, limpR, seed, 2, STACK - 1) - 1;
     const mAll = mass(limpR, heroIds) || 1e-9;
     const pC = mass(callR, heroIds) / mAll, pR = mass(threeR, heroIds) / mAll, pF = Math.max(0, 1 - pC - pR);
-    const evCallV = postVs(eqr(table, 'BB', 'SB', true, hand, 1), heroIds, callR, seed + 1, 8, STACK - 4) - 4;
-    const evRaiseV = pR > 0 ? Math.max(-4, postVs(eqr(table, 'BB', 'SB', false, hand, 2), heroIds, threeR, seed + 2, 24, STACK - 12) - 12) : 0;
+    const evCallV = postVs(eqr(table, 'BB', 'SB', true, hand, 1), heroIds, callR, seed + 1, 2 * X, STACK - X) - X;
+    const evRaiseV = pR > 0 ? Math.max(-X, postVs(eqr(table, 'BB', 'SB', false, hand, 2), heroIds, threeR, seed + 2, 2 * Y, STACK - Y) - Y) : 0;
     return { raise: pF * 1 + pC * evCallV + pR * evRaiseV, check: evCheck };
   }
 
