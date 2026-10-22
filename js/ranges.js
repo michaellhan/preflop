@@ -24,12 +24,13 @@
     SB_LIMP: "AA:0.1, KK:0.2, QQ:0.15, JJ:0.2, 99-TT:0.15, 88:0.2, 77:0.25, 44-66:0.3, 33:0.35, 22:0.4, AQs:0.05, A6s:0.05, A4s:0.05, A3s:0.15, A2s:0.5, K9s:0.15, K8s:0.45, K7s:0.35, K6s:0.15, K5s:0.25, K4s:0.5, K3s:0.7, K2s:0.65, Q9s:0.2, Q8s:0.3, Q7s:0.25, Q6s:0.4, Q5s:0.35, Q4s:0.45, Q3s:0.25, Q2s:0.3, J9s:0.05, J8s:0.4, J7s:0.35, J6s:0.2, J5s:0.15, J4s:0.35, J3s:0.8, J2s:0.05, T9s:0.05, T8s:0.35, T7s:0.5, T5s-T6s:0.2, T4s:0.5, T3s:0.15, 98s:0.45, 97s:0.3, 96s:0.35, 95s:0.45, 87s:0.4, 86s:0.35, 85s:0.15, 76s:0.15, 74s-75s:0.3, 65s:0.05, 64s:0.25, 63s:0.05, 54s:0.2, 53s:0.3, 43s:0.25, AKo:0.25, AQo:0.15, ATo-AJo:0.2, A9o:0.35, A8o:0.2, A6o-A7o:0.15, A5o:0.3, A4o:0.35, A3o:0.8, A2o:0.35, KQo:0.15, KJo:0.3, KTo:0.4, K8o-K9o:0.05, K7o:0.65, K6o:0.4, K5o:0.05, QJo:0.4, QTo:0.35, Q9o:0.15, Q8o:0.8, JTo:0.4, J9o:0.3, J8o:0.55, T8o+:0.3, T7o:0.1, 98o:0.25, 97o:0.3, 87o:0.3, 76o:0.25, 65o:0.2"
   };
 
-  /* 9-max UTG: GTO Wizard's published 9-handed 100bb UTG open (blog chart, read to about +-5%), rounded to 5%.
-     UTG+1 / UTG+2: per hand, a third / two-thirds of the way from that range to LJ (= 6-max UTG). */
+  /* 9-max UTG: GTO Wizard's published 9-handed 100bb UTG open (blog chart, read to about +-5%), rounded to 5%
+     and capped per hand at UTG+1. UTG+1 / UTG+2: PokerCoaching's 8-max 100bb cash UTG / UTG+1 opens (same number
+     of players behind), rounded to 5%; UTG+2 capped per hand at LJ (= 6-max UTG). */
   const RFI9 = {
-    'UTG':   "99+, 88:0.6, 77:0.3, 66:0.1, 22-55:0.05, A7s+, A6s:0.9, A4s-A5s, A3s:0.2, KTs+, K9s:0.6, K8s:0.15, K7s:0.25, K6s:0.3, K5s:0.4, QJs, QTs:0.7, JTs:0.6, T9s:0.05, 87s:0.1, 76s:0.1, 65s:0.1, 54s:0.05, AQo+, AJo:0.4, KQo:0.7",
-    'UTG+1': "99+, 88:0.75, 77:0.55, 66:0.4, 55:0.2, 44:0.15, 33:0.1, 22:0.15, A8s+, A6s-A7s:0.95, A4s-A5s, A3s:0.45, A2s:0.35, KTs+, K9s:0.75, K8s:0.45, K7s:0.25, K6s:0.3, K5s:0.25, QJs, QTs:0.8, Q9s:0.35, JTs:0.75, J9s:0.35, T9s:0.35, T8s:0.05, 98s:0.15, 87s:0.1, 76s:0.2, 65s:0.2, 54s:0.15, AQo+, AJo:0.6, ATo:0.35, KQo:0.8, KJo:0.2, KTo:0.15, QJo:0.05",
-    'UTG+2': "99+, 88:0.85, 77:0.75, 66:0.7, 55:0.3, 44:0.25, 33:0.2, 22:0.3, A8s+, A6s-A7s:0.95, A4s-A5s, A3s:0.75, A2s:0.65, KTs+, K9s:0.85, K8s:0.7, K7s:0.25, K6s:0.3, K5s:0.15, QJs, QTs:0.9, Q9s:0.65, JTs:0.85, J9s:0.65, T9s:0.7, T8s:0.05, 98s:0.35, 87s:0.05, 76s:0.25, 65s:0.35, 54s:0.3, AQo+, AJo:0.8, ATo:0.65, KQo:0.9, KJo:0.35, KTo:0.3, QJo:0.15",
+    'UTG':   "99+, 88:0.6, 77:0.3, 66:0.1, 55:0.05, A8s+, A7s:0.95, A6s:0.5, A4s-A5s, A3s:0.2, KTs+, K9s:0.6, K6s:0.05, K5s:0.15, QJs, QTs:0.7, JTs:0.6, T9s:0.05, 65s:0.1, 54s:0.05, AQo+, KQo:0.6",
+    'UTG+1': "88+, 77:0.5, 66:0.2, 55:0.15, A8s+, A7s:0.95, A6s:0.5, A4s-A5s, A3s:0.85, KTs+, K9s:0.6, K6s:0.05, K5s:0.15, QTs+, JTs, T9s:0.35, 65s:0.6, 54s:0.05, AQo+, KQo:0.6",
+    'UTG+2': "88+, 77:0.95, 66:0.35, 55:0.25, A8s+, A7s:0.9, A3s-A6s, K9s+, K8s:0.2, K7s:0.05, K6s:0.2, QTs+, JTs, T9s:0.65, 65s:0.45, 54s:0.2, AQo+, AJo:0.6, KQo",
     'LJ':  RFI6.UTG,   // 5 players behind — structurally identical to 6-max UTG
     'HJ':  RFI6.HJ,
     'CO':  RFI6.CO,
@@ -61,30 +62,28 @@
       raise: "QQ+, JJ:0.4, TT:0.1, AQs+, AJs:0.2, ATs:0.35, A7s:0.15, A6s:0.35, A5s:0.45, A4s:0.55, A3s:0.4, A2s:0.3, KQs:0.85, KJs:0.45, KTs:0.3, K9s:0.15, K8s:0.2, K7s:0.25, K6s:0.15, K5s:0.1, K4s:0.2, QJs:0.6, QTs:0.1, Q9s:0.2, JTs:0.3, T9s:0.25, T8s:0.35, T7s:0.2, 87s:0.45, 76s:0.2, 65s:0.35, 54s:0.2, AKo, AQo:0.2, KQo:0.35, KJo:0.1",
       call:  "JJ:0.6, TT:0.9, 22-99, AJs:0.8, ATs:0.65, A8s-A9s, A7s:0.85, A6s:0.65, A5s:0.55, A4s:0.45, A3s:0.6, A2s:0.7, KQs:0.15, KJs:0.55, KTs:0.7, K9s:0.85, K8s:0.8, K7s:0.75, K6s:0.85, K5s:0.9, K4s:0.8, K2s-K3s:0.2, QJs:0.4, QTs:0.9, Q9s:0.8, Q8s, Q6s, Q5s:0.25, JTs:0.7, J8s-J9s, T9s:0.75, T8s:0.65, T7s:0.8, 96s+, 87s:0.55, 86s, 85s:0.95, 76s:0.8, 75s, 65s:0.65, 63s-64s, 54s:0.8, 53s, 52s:0.6, 43s, 42s:0.4, AQo:0.8, ATo-AJo, KQo:0.65, KJo:0.6, KTo:0.25, QJo:0.3, QTo:0.15, JTo:0.45"
     },
-    /* 9-max UTG / UTG+1 opens (~11.5% / ~13%) are much tighter than the ~18% 6-max UTG open the *_vs_UTG
-       charts face, so every defender continues narrower here. No free per-hand full-ring solver data was found;
-       these are derived from the *_vs_UTG charts by trimming the weakest continues (fewer cold 3-bet bluffs,
-       fewer small pairs / suited gappers / offsuit broadways in the flats) so each hand continues no more often
-       than against the 6-max UTG open. HJ_vs_EP9 also covers UTG+1..LJ responding to an earlier open. */
+    /* Facing an open from 9-max UTG / UTG+1: PokerCoaching's 8-max 100bb cash charts vs a UTG open (8-max UTG has
+       the same players behind as 9-max UTG+1), rounded to 5%. HJ_vs_EP9 (UTG+1..HJ responding) averages the 8-max
+       UTG+1, LJ and HJ charts. */
     HJ_vs_EP9: {
-      raise: "QQ+, JJ:0.95, TT:0.85, 99:0.7, 88:0.45, 77:0.25, 66:0.1, AKs, AQs:0.8, AJs:0.75, ATs:0.6, A9s:0.2, A5s:0.7, A4s:0.2, KQs:0.9, KJs:0.65, KTs:0.35, QJs:0.3, AKo, AQo:0.5",
-      call:  "TT-JJ:0.05, 99:0.1, 66-88:0.05, AQs:0.15, AJs:0.1, ATs:0.05, KQs:0.05, QJs:0.05, JTs:0.05, AQo:0.05"
+      raise: "AA, KK:0.7, QQ:0.3, TT-JJ:0.1, 88-99:0.2, 77:0.15, AKs:0.8, ATs-AJs:0.05, A8s-A9s:0.1, A7s:0.55, A5s:0.6, A4s:0.55, A3s:0.1, KQs:0.3, KJs:0.95, KTs:0.8, K9s:0.05, K5s:0.05, JTs:0.2, T9s:0.05, 76s:0.1, 65s:0.5, 54s:0.05, AKo:0.65, AQo:0.1",
+      call:  "KK:0.3, QQ:0.7, TT-JJ:0.9, 99:0.65, 88:0.4, 66-77:0.25, 55:0.05, AKs:0.2, AQs, ATs-AJs:0.95, A5s:0.4, A4s:0.25, KQs:0.7, KJs:0.05, KTs:0.2, QJs:0.35, JTs:0.65, 76s:0.05, 65s:0.45, 54s:0.2, AKo:0.35"
     },
     CO_vs_EP9: {
-      raise: "QQ+, JJ:0.85, TT:0.8, 99:0.6, 88:0.55, 77:0.3, 66:0.15, AKs, AQs:0.85, AJs:0.55, ATs:0.45, A5s:0.75, A4s:0.2, KQs:0.75, KJs:0.65, KTs:0.35, QJs:0.45, QTs:0.2, AKo:0.9, AQo:0.55",
-      call:  "TT-JJ:0.15, 88-99:0.2, 77:0.1, 66:0.15, 55:0.05, AQs:0.1, AJs:0.3, ATs:0.15, A4s:0.05, KQs:0.15, KTs-KJs:0.05, QJs:0.1, QTs:0.05, JTs:0.15, T9s:0.05, AQo+:0.1"
+      raise: "AA, KK:0.85, QQ:0.25, TT-JJ:0.1, 99:0.25, 88:0.2, 77:0.15, AKs:0.95, AJs:0.1, A9s:0.2, A8s:0.4, A7s:0.25, A5s:0.8, A4s:0.25, A3s:0.3, KQs:0.1, KJs, KTs:0.85, K9s:0.05, K5s:0.05, QJs:0.15, JTs:0.2, T9s:0.2, 76s:0.1, 65s:0.5, 54s:0.05, AKo:0.5, AQo:0.2",
+      call:  "KK:0.15, QQ:0.75, TT-JJ:0.9, 99:0.75, 88:0.8, 77:0.4, 66:0.35, 55:0.25, AKs:0.05, AQs, AJs:0.9, ATs, A9s:0.65, A5s:0.2, A4s:0.7, KQs:0.9, KTs:0.15, QJs:0.8, QTs:0.45, JTs:0.8, T9s:0.1, 76s:0.15, 65s:0.5, 54s:0.35, AKo:0.5, AQo:0.25"
     },
     BTN_vs_EP9: {
-      raise: "KK+, QQ:0.8, TT-JJ:0.7, 99:0.55, 88:0.5, 77:0.45, 66:0.25, AKs, AQs:0.9, AJs:0.35, ATs:0.55, A9s:0.35, A8s:0.15, A5s:0.7, A4s:0.55, A3s:0.05, KQs:0.5, KJs:0.65, KTs:0.35, K9s:0.05, QJs:0.55, QTs:0.4, JTs:0.2, T9s:0.2, AKo:0.8, AQo:0.5, KQo:0.1",
-      call:  "QQ:0.2, TT-JJ:0.3, 77-99:0.45, 66:0.5, 55:0.2, 22-44:0.15, AQs:0.1, AJs:0.55, ATs:0.3, A9s:0.1, A8s:0.15, A5s:0.15, A4s:0.2, A3s:0.05, KQs:0.5, KJs:0.2, KTs:0.25, QJs:0.2, QTs:0.15, JTs:0.5, T9s:0.25, 98s:0.1, 76s:0.1, 65s:0.1, AKo:0.2, AQo:0.3"
+      raise: "AA, KK:0.9, QQ:0.3, JJ:0.15, TT:0.05, 99:0.15, 88:0.25, 77:0.15, AKs:0.95, AJs:0.25, A8s:0.6, A7s:0.4, A5s:0.75, A4s:0.3, A3s:0.15, A2s:0.1, KQs:0.1, KJs, KTs:0.5, K9s:0.25, K5s:0.25, QJs:0.1, JTs:0.25, T9s:0.4, 76s:0.15, 65s:0.4, 54s:0.15, AKo:0.5, AQo:0.25",
+      call:  "KK:0.1, QQ:0.7, JJ:0.85, TT:0.95, 99:0.85, 88:0.75, 77:0.65, 66:0.4, 55:0.85, AKs:0.05, AQs, AJs:0.75, A9s-ATs, A8s:0.1, A5s:0.25, A4s:0.7, A3s:0.3, KQs:0.9, KTs:0.5, QJs:0.9, QTs, JTs:0.75, T9s:0.55, 76s:0.35, 65s:0.6, 54s:0.6, AKo:0.5, AQo:0.7"
     },
     SB_vs_EP9: {
-      raise: "QQ+, JJ:0.65, TT:0.35, 77-99:0.2, 66:0.1, AKs, AQs:0.95, AJs:0.3, ATs:0.25, A8s:0.05, A5s:0.6, A4s:0.65, A3s:0.15, KQs:0.7, KJs:0.5, KTs:0.35, QJs:0.4, JTs:0.4, T9s:0.05, 65s:0.1, 54s:0.05, AKo, AQo:0.5, KQo:0.1",
-      call:  "JJ:0.3, TT:0.4, 99:0.5, 66-88:0.4, 33-55:0.2, 22:0.35, AJs:0.45, ATs:0.4, A9s:0.3, A8s:0.25, A5s:0.2, A4s:0.1, KQs:0.1, KJs:0.2, KTs:0.15, QJs:0.25, JTs:0.3, T9s:0.05, 76s:0.1, 65s:0.2, 54s:0.25, AQo:0.25"
+      raise: "KK+, QQ:0.75, TT-JJ:0.3, 99:0.15, 88:0.1, 66-77:0.05, AKs, AJs:0.45, ATs:0.4, A5s, A4s:0.05, KQs:0.3, KJs:0.75, KTs:0.5, JTs:0.2, 65s:0.6, 54s:0.05, AKo:0.8",
+      call:  "QQ:0.25, TT-JJ:0.7, 99:0.45, 88:0.3, 77:0.2, 66:0.15, 55:0.3, AQs, AJs:0.55, ATs:0.6, A4s:0.15, KQs:0.7, KJs:0.25, KTs:0.1, QJs:0.15, JTs:0.45, 65s:0.05, AKo:0.2"
     },
     BB_vs_EP9: {
-      raise: "QQ+, JJ:0.4, TT:0.1, AQs+, AJs:0.2, ATs:0.35, A7s:0.15, A6s:0.3, A5s:0.45, A4s:0.5, A3s:0.35, A2s:0.25, KQs:0.85, KJs:0.45, KTs:0.3, K9s:0.15, K7s-K8s:0.2, K6s:0.1, K5s:0.05, K4s:0.1, QJs:0.6, QTs:0.1, Q9s:0.2, JTs:0.3, T9s:0.25, T8s:0.35, T7s:0.1, 87s:0.45, 76s:0.2, 65s:0.35, 54s:0.2, AKo, AQo:0.2, KQo:0.35, KJo:0.1",
-      call:  "JJ:0.6, TT:0.9, 66-99, 55:0.95, 44:0.9, 33:0.85, 22:0.8, AJs:0.8, ATs:0.65, A8s-A9s, A7s:0.75, A5s-A6s:0.55, A4s:0.45, A3s:0.55, A2s:0.6, KQs:0.15, KJs:0.55, KTs:0.7, K9s:0.85, K8s:0.7, K6s-K7s:0.6, K5s:0.55, K4s:0.45, K3s:0.1, K2s:0.05, QJs:0.4, QTs:0.9, Q9s:0.8, Q8s:0.85, Q6s:0.4, Q5s:0.1, JTs:0.7, J9s, J8s:0.9, T9s:0.75, T8s:0.65, T7s:0.5, 98s, 97s:0.9, 96s:0.4, 87s:0.55, 86s:0.7, 85s:0.4, 76s:0.8, 75s:0.7, 64s+:0.65, 63s:0.7, 54s:0.7, 53s:0.6, 52s:0.4, 43s:0.5, 42s:0.3, AQo:0.8, AJo:0.95, ATo:0.8, KQo:0.6, KJo:0.5, KTo:0.15, QJo:0.25, QTo:0.1, JTo:0.25"
+      raise: "KK+, QQ:0.55, JJ:0.05, TT:0.1, 99:0.05, 88:0.15, 66:0.2, AKs, AJs:0.1, A7s:0.05, A6s:0.25, A5s:0.9, A4s:0.1, A3s:0.5, KJs:0.4, KTs:0.6, K9s:0.25, QTs+:0.15, J9s+:0.05, T9s:0.2, 87s:0.1, 76s:0.15, 65s:0.5, 54s:0.1, AKo:0.6",
+      call:  "QQ:0.45, JJ:0.95, TT:0.9, 99:0.95, 88:0.85, 77, 66:0.8, 33-55, 22:0.75, AQs, AJs:0.9, A8s-ATs, A7s:0.95, A6s:0.65, A5s:0.1, A4s:0.9, A3s:0.5, KQs, KJs:0.6, K9s-KTs:0.4, QTs+:0.85, J9s+:0.95, T9s:0.8, T8s, 97s:0.05, 87s:0.6, 76s:0.85, 65s:0.5, 54s:0.9, AKo:0.4, AQo, KQo:0.15"
     },
     CO_vs_HJ: {
       raise: "QQ+, JJ:0.8, 88-TT:0.9, 77:0.8, 66:0.35, AQs+, AJs:0.8, ATs:0.85, A9s, A8s:0.65, A6s:0.2, A5s, A4s:0.75, KQs:0.8, KJs, KTs:0.9, K9s:0.05, QTs+:0.95, JTs:0.1, AKo, AQo:0.95, KQo:0.3, KJo:0.05",
@@ -151,30 +150,28 @@
       raise: "AA, KK:0.65, JJ:0.15, 99-TT:0.05, AKs:0.5, ATs:0.1, A9s:0.2, A6s:0.05, A4s-A5s:0.25, A3s:0.3, A2s:0.15, KQs:0.1, KTs-KJs:0.2, AKo:0.45, AQo:0.2",
       call:  "KK:0.35, QQ, TT-JJ:0.85, 99:0.5, 88:0.45, 77:0.3, 66:0.45, 55:0.35, 44:0.7, 33:0.6, 22:0.75, AKs:0.5, AQs, ATs-AJs:0.9, A6s:0.15, A5s:0.75, A4s:0.1, KQs:0.9, KJs:0.3, QJs:0.15, QTs:0.2, T9s:0.2, 87s, 76s, 65s:0.65, 54s:0.3, AKo:0.55, AQo:0.05"
     },
-    /* 9-max UTG / UTG+1 / UTG+2 openers (~11.5-15%). Their opening range is already strong and the 3-bettor's
-       range against them is tighter, so they 4-bet fewer bluffs than the 6-max UTG_* charts (A5s/A4s only,
-       no suited-connector 4-bets) and flat a little more QQ/JJ/AK; marginal flats (small pairs, ATs, suited
-       connectors) shrink against the tighter in-position 3-bets. Derived from UTG_*, unsourced per hand.
-       EP9_vs_HJ covers any 3-bettor from UTG+1 to HJ. */
+    /* 9-max UTG / UTG+1 / UTG+2 facing a 3-bet: PokerCoaching's 8-max 100bb cash UTG and UTG+1 opener charts,
+       averaged per hand over the openers that open it, rounded to 5%. EP9_vs_HJ covers any 3-bettor from UTG+1 to
+       HJ (8-max UTG+1/LJ/HJ 3-bets). */
     EP9_vs_HJ: {
-      raise: "KK+, QQ:0.45, JJ:0.25, TT:0.05, 99:0.1, 88:0.05, AKs, AJs:0.3, ATs:0.1, A7s:0.1, A5s:0.35, A4s:0.2, KQs:0.75, KTs-KJs:0.1, K6s:0.3, AKo:0.75, AQo:0.25",
-      call:  "QQ:0.55, JJ:0.75, TT:0.95, 99:0.75, 88:0.5, 77:0.4, 66:0.45, 55:0.75, 22-44:0.8, AQs, ATs-AJs:0.7, A5s:0.45, A4s:0.25, KQs:0.2, KJs:0.75, KTs:0.35, QJs:0.75, QTs:0.2, JTs:0.65, T9s:0.45, 98s:0.5, 54s:0.8, AKo:0.25, AQo:0.15, KQo:0.05"
+      raise: "AA, KK:0.95, QQ:0.1, JJ:0.25, 99:0.05, AKs:0.35, AQs:0.15, AJs:0.4, ATs:0.05, A5s:0.5, KJs+:0.05, KTs:0.1, AKo:0.7",
+      call:  "KK:0.05, QQ:0.9, JJ:0.6, TT:0.2, 99:0.35, 88:0.4, 77:0.75, 55-66, 22-44:0.8, AKs:0.65, AQs:0.85, AJs:0.3, ATs:0.35, A5s:0.15, KQs:0.2, JTs:0.3, T9s:0.55, 98s:0.5, 65s, 54s, AKo:0.25"
     },
     EP9_vs_CO: {
-      raise: "KK+, QQ:0.55, JJ:0.25, 99:0.1, 88:0.05, AKs, AJs:0.4, A5s:0.35, A4s:0.3, A3s:0.05, KQs:0.75, KTs-KJs:0.1, K6s:0.6, AKo:0.75, AQo:0.3",
-      call:  "QQ:0.45, JJ:0.75, 99-TT:0.9, 88:0.7, 77:0.55, 66:0.6, 22-55:0.8, AQs, AJs:0.6, ATs:0.9, A6s:0.15, A5s:0.45, A4s:0.3, A3s:0.05, KQs:0.2, KJs:0.7, KTs:0.35, K6s:0.15, QJs, QTs:0.15, JTs:0.75, T9s:0.65, 98s:0.75, 54s:0.8, AKo:0.25, AQo:0.2, KQo:0.1"
+      raise: "KK+, QQ:0.05, JJ:0.25, 99-TT:0.1, AKs:0.45, AQs:0.05, AJs:0.4, ATs:0.25, A5s:0.55, A4s:0.05, KQs:0.05, KJs:0.3, AKo:0.65",
+      call:  "QQ:0.95, JJ:0.75, 99-TT:0.35, 88:0.55, 77:0.7, 55-66, 22-44:0.8, AKs:0.55, AQs:0.95, AJs:0.55, ATs:0.3, A5s:0.25, KQs:0.35, KJs:0.05, JTs:0.45, T9s:0.65, 98s:0.75, 65s, 54s, AKo:0.35"
     },
     EP9_vs_BTN: {
-      raise: "KK+, QQ:0.45, JJ:0.25, 88-99:0.05, AKs, AJs:0.25, A9s:0.05, A8s:0.1, A5s:0.4, A4s:0.3, A3s:0.05, KQs:0.65, KJs:0.15, KTs:0.2, K6s:0.45, AKo:0.75, AQo:0.35",
-      call:  "QQ:0.55, JJ:0.75, TT:0.9, 99:0.95, 88:0.85, 66-77:0.75, 22-55:0.8, AQs, AJs:0.75, ATs:0.9, A9s:0.6, A8s:0.1, A6s:0.3, A4s-A5s:0.4, KQs:0.3, KTs-KJs:0.65, QJs, QTs:0.35, JTs:0.85, T9s:0.75, 98s:0.75, 87s:0.5, 65s:0.15, AKo:0.25, AQo:0.3, KQo:0.1"
+      raise: "KK+, QQ:0.05, JJ:0.25, 99-TT:0.1, AKs:0.4, AJs:0.45, ATs:0.35, A5s:0.5, A4s:0.05, KJs:0.2, KTs:0.1, AKo:0.65",
+      call:  "QQ:0.95, JJ:0.75, TT:0.4, 99:0.3, 88:0.65, 77:0.7, 55-66, 22-44:0.8, AKs:0.6, AQs, AJs:0.4, ATs:0.6, A9s:0.05, A5s:0.2, KQs:0.65, JTs:0.5, T9s:0.75, 98s:0.75, 87s:0.5, 65s, 54s, AKo:0.35"
     },
     EP9_vs_SB: {
-      raise: "AA, KK:0.7, JJ:0.3, 99:0.1, AKs:0.85, AJs:0.2, A5s:0.25, A4s:0.15, A3s:0.05, KJs+:0.15, KTs:0.25, AKo:0.45, AQo:0.2",
-      call:  "KK:0.3, QQ, JJ:0.7, TT, 99:0.55, 88:0.4, 77:0.3, 66:0.4, 55:0.05, 44:0.4, 33:0.7, 22:0.8, AKs:0.15, AQs, ATs-AJs:0.8, A5s:0.65, A4s:0.05, KQs:0.85, KJs:0.8, KTs:0.25, JTs:0.3, T9s:0.25, 87s:0.15, 65s:0.75, 54s:0.7, AKo:0.55, AQo:0.2, AJo:0.05"
+      raise: "AA:0.85, KK:0.35, ATs:0.1, A7s:0.05, A5s:0.15, A4s:0.4, A3s:0.05, KJs+:0.05, KTs:0.15, K9s:0.1, K6s:0.15, AKo:0.5",
+      call:  "AA:0.15, KK:0.65, QQ, JJ:0.8, TT:0.05, 99:0.5, 88:0.6, 77:0.8, 66:0.65, 55:0.5, 44:0.4, 33:0.7, 22:0.8, AJs+, ATs:0.6, A5s:0.7, KQs:0.65, QJs:0.1, QTs:0.2, JTs:0.9, T9s, 87s:0.15, 65s, 54s, AKo:0.5"
     },
     EP9_vs_BB: {
-      raise: "AA, KK:0.65, JJ:0.15, 99-TT:0.05, AKs:0.5, ATs:0.1, A6s:0.05, A5s:0.25, A4s:0.2, A3s:0.15, A2s:0.1, KQs:0.1, KTs-KJs:0.2, AKo:0.45, AQo:0.2",
-      call:  "KK:0.35, QQ, TT-JJ:0.85, 99:0.5, 88:0.4, 77:0.25, 66:0.35, 55:0.3, 44:0.55, 33:0.5, 22:0.6, AKs:0.5, AQs, AJs:0.9, ATs:0.85, A6s:0.1, A5s:0.7, A4s:0.1, KQs:0.9, KJs:0.3, QTs+:0.15, T9s:0.2, 87s:0.5, 76s:0.8, 65s:0.5, 54s:0.25, AKo:0.55, AQo:0.05"
+      raise: "AA:0.8, KK:0.4, AQs:0.05, AJs:0.1, A9s:0.1, A7s:0.1, A5s:0.05, A4s:0.3, A3s:0.05, A2s:0.1, KTs-KJs:0.1, AKo:0.5",
+      call:  "AA:0.2, KK:0.6, QQ, JJ:0.7, TT:0.25, 99:0.3, 77-88:0.8, 66, 55:0.6, 44:0.55, 33:0.5, 22:0.6, AKs, AQs:0.95, AJs:0.9, ATs, A8s:0.05, A5s:0.8, A4s:0.05, KQs:0.5, QTs+:0.15, JTs, T9s, 87s:0.5, 76s:0.8, 65s, 54s, AKo:0.5"
     },
     HJ_vs_CO: {
       raise: "KK+, QQ:0.9, JJ:0.35, 99:0.1, 77-88:0.05, AKs:0.9, AJs:0.15, A5s:0.45, A4s:0.4, A3s:0.3, A2s:0.1, KQs:0.85, KJs:0.2, KTs:0.25, K9s:0.1, K6s:0.35, AKo:0.9, AQo:0.55",
@@ -331,23 +328,24 @@
   };
 
   /* ---------------- SQUEEZE (someone opens, someone else calls, hero has not acted) ----------------
-     raise = squeeze, call = overcall, everything else folds. Same keys as COLD_4BET. */
+     raise = squeeze, call = overcall, everything else folds. Same keys as COLD_4BET. The *_vs_EP fallbacks (two
+     early 9-max seats ahead of hero) follow PokerCoaching's 8-max 100bb cash squeeze charts vs UTG open + UTG+1 call. */
   const SQUEEZE = {
     IP_vs_EP: {
-      raise: "QQ+, JJ:0.85, TT:0.6, 99:0.45, 88:0.4, 77:0.3, 66:0.1, AKs, AQs:0.9, AJs:0.4, ATs:0.6, A5s:0.5, KQs, KJs:0.8, KTs:0.9, K9s:0.15, QJs:0.45, QTs:0.4, JTs:0.2, T9s:0.1, 87s:0.1, 76s:0.15, 65s:0.25, 54s:0.25, AKo:0.9, AQo:0.8, KQo:0.1",
-      call:  "JJ:0.15, TT:0.4, 99:0.55, 88:0.6, 77:0.7, 66:0.9, 55:0.7, 44:0.75, 33:0.9, 22, AQs:0.1, AJs:0.6, ATs:0.4, A9s:0.1, A5s:0.2, A4s:0.3, KJs:0.2, KTs:0.1, QJs:0.55, QTs:0.6, JTs:0.7, T9s:0.35, 98s:0.15, 87s:0.05, 76s:0.2, 65s:0.4, 54s:0.65, AKo:0.1, AQo:0.2, KQo:0.1"
+      raise: "KK+, QQ:0.35, JJ:0.05, 99-TT:0.2, 88:0.1, 77:0.15, AKs:0.95, ATs-AQs:0.05, A8s:0.05, A7s:0.15, A5s:0.3, A4s:0.15, A3s:0.25, A2s:0.1, KQs:0.9, KJs:0.5, KTs:0.3, K9s:0.2, K8s:0.15, K7s:0.1, K6s:0.05, 76s:0.15, 65s:0.3, 54s:0.1, AKo:0.85, AQo:0.05",
+      call:  "QQ:0.65, JJ:0.95, TT:0.6, 99:0.55, 88:0.85, 77:0.6, 66:0.4, 55:0.15, 44:0.2, 33:0.4, 22:0.3, AKs:0.05, AQs:0.95, AJs:0.7, ATs:0.35, A5s:0.4, A4s:0.25, A3s:0.05, KQs:0.1, KJs:0.35, KTs:0.25, QTs+:0.1, JTs:0.2, T9s:0.05, 76s:0.2, 65s:0.45, 54s:0.65, AKo:0.15"
     },
     SB_vs_EP: {
-      raise: "QQ+, JJ:0.75, 88-TT:0.05, AKs, AQs:0.8, AJs:0.45, A8s:0.15, A5s:0.4, A4s:0.25, A2s:0.1, KJs+:0.95, KTs:0.6, K9s:0.5, K8s:0.15, K6s:0.15, QJs:0.5, QTs:0.05, JTs:0.3, J9s:0.4, 76s:0.2, 65s:0.05, AKo, AQo:0.95, AJo:0.15, KQo:0.5",
-      call:  "JJ:0.25, 88-TT:0.95, 22-77, AQs:0.2, AJs:0.55, ATs, A9s:0.45, A8s:0.35, A5s:0.5, A4s:0.65, A3s:0.35, KJs+:0.05, KTs:0.4, QJs:0.5, QTs:0.95, JTs:0.65, J9s:0.1, T9s:0.45, 98s:0.1, 76s:0.4, 65s:0.5, 54s:0.5, AQo:0.05, KQo:0.15"
+      raise: "KK+, QQ:0.95, JJ:0.05, TT:0.1, 99:0.15, 88:0.1, 77:0.15, AKs, AQs:0.25, A5s:0.45, A4s:0.1, KQs, KJs:0.4, KTs:0.3, K9s:0.05, K7s:0.05, 76s:0.1, 65s:0.6, 54s:0.05, AKo",
+      call:  "QQ:0.05, JJ:0.95, TT:0.5, 99:0.7, 88:0.5, 77:0.6, 66:0.15, 55:0.2, 44:0.15, 22:0.25, AQs:0.75, AJs:0.95, A5s:0.3, A3s:0.25, KJs:0.2, KTs:0.05, QJs:0.05, JTs:0.05, 76s:0.3, 65s:0.15, 54s:0.2"
     },
     SB_vs_LP: {
       raise: "TT+, 99:0.15, AQs+, AJs:0.65, ATs:0.5, A7s-A8s:0.05, A5s:0.15, A4s:0.05, KTs+, K9s:0.3, QJs:0.2, QTs:0.3, JTs, J9s:0.8, T9s:0.6, 76s:0.05, 65s:0.15, AQo+, AJo:0.7, KQo:0.7, KJo:0.55",
       call:  "99:0.85, 22-88, AJs:0.35, ATs:0.5, A9s, A8s:0.75, A7s:0.2, A6s:0.15, A5s:0.85, A4s:0.55, A3s:0.25, K9s:0.35, QJs:0.8, QTs:0.7, J9s:0.15, T9s:0.4, 98s:0.2, 76s:0.25, 65s:0.3, 54s:0.35, AJo:0.15, KQo:0.3"
     },
     BB_vs_EP: {
-      raise: "QQ+, JJ:0.65, TT:0.05, AKs, AQs:0.35, A7s:0.1, A5s:0.15, A3s-A4s:0.05, KJs+:0.85, KTs:0.35, K9s:0.45, K8s:0.4, K7s:0.5, K6s:0.55, K5s:0.25, QJs:0.2, JTs:0.2, J8s:0.2, 65s:0.1, 54s:0.1, AKo:0.95, AQo:0.85, AJo:0.3, KQo:0.45, KJo:0.3",
-      call:  "JJ:0.35, TT:0.95, 22-99, AQs:0.65, A8s-AJs, A7s:0.9, A6s, A5s:0.85, A3s-A4s:0.95, A2s, KJs+:0.15, KTs:0.65, K9s:0.55, K8s:0.6, K7s:0.45, K6s:0.4, K5s:0.55, K4s:0.5, K3s:0.15, K2s:0.3, QJs:0.8, QTs, Q9s:0.85, JTs:0.8, J9s, J8s:0.65, T8s+, 98s, 97s:0.95, 96s:0.4, 86s+, 76s, 75s:0.95, 65s:0.9, 64s, 63s:0.45, 54s:0.9, 53s, 52s:0.6, 43s, 42s:0.4, AKo:0.05, AQo:0.15, AJo:0.2, ATo:0.35, KQo:0.55, KJo:0.45, KTo:0.05, QJo:0.5, QTo:0.05, JTo:0.4, T9o:0.05"
+      raise: "QQ+, TT:0.15, 88:0.15, 77:0.05, 66:0.1, AKs, AQs:0.5, A5s:0.15, A4s:0.6, KQs:0.9, KJs:0.25, KTs:0.3, K9s:0.6, K8s:0.05, 87s:0.25, 76s:0.15, 65s:0.25, 54s:0.05, AKo",
+      call:  "JJ, TT:0.85, 99, 88:0.85, 77:0.95, 66:0.9, 22-55, AQs:0.5, ATs-AJs, A9s:0.85, A7s-A8s:0.35, A6s:0.1, A5s:0.8, A4s:0.35, A3s:0.95, A2s:0.2, KQs:0.1, KJs:0.75, KTs:0.65, K9s:0.05, K6s:0.2, QJs:0.95, QTs:0.2, JTs:0.95, T9s:0.15, T8s:0.05, 98s:0.1, 97s:0.4, 87s:0.2, 86s:0.3, 76s:0.7, 75s:0.1, 65s:0.75, 64s:0.55, 54s:0.9, 53s:0.05, AQo:0.25"
     },
     BB_vs_LP: {
       raise: "TT+, AQs+, AJs:0.1, A7s:0.25, A5s:0.05, KQs:0.85, KTs-KJs, K8s:0.1, K6s:0.35, QTs:0.6, JTs, J8s-J9s:0.4, T9s:0.05, T7s:0.2, AQo+, AJo:0.85, ATo:0.15, KQo:0.5, KJo:0.55, KTo:0.25, JTo:0.2",
