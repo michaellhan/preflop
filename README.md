@@ -4,7 +4,7 @@ A GTO Wizard-style **preflop trainer** for 100bb cash games. Static site, no bui
 
 Live at **https://www.michael-han.com/preflop/**
 
-- **Trainer** — random spot (open / facing an open / facing a 3-bet / BB vs SB limp) at 6-max, 9-max or heads-up, you pick fold / call / raise (or limp on an open), and get graded against the equilibrium frequencies with the full range revealed, an estimated **EV loss** in bb, and a **"why" note** explaining the decision (hand class, position, villain's range, the pattern it belongs to).
+- **Trainer** — random spot (open / facing an open / facing a 3-bet / BB vs SB limp) at any table size from heads-up to 9-max, you pick fold / call / raise (or limp on an open), and get graded against the equilibrium frequencies with the full range revealed, an estimated **EV loss** in bb, and a **"why" note** explaining the decision (hand class, position, villain's range, the pattern it belongs to).
 - **Range Charts** (`/preflop/ranges/`) — 13x13 reference charts for every position and scenario, split by action frequency.
 - **About the Data** (`/preflop/about/`) — game model, sizes, accuracy notes and scoring rules.
 
@@ -44,7 +44,7 @@ Parses every range, fails on duplicate hands or frequencies over 100%, and print
 
 - `js/ranges.js` — all range data in compact notation (`A5s:0.6` = 60% frequency).
 - `js/hands.js` — hand grid and range-notation parser.
-- `js/spots.js` — builds the trainable spots (action history, sizes, 9-max mapping).
+- `js/spots.js` — builds the trainable spots (action history, sizes, mapping every 3-9 max seat to the 9-max seat with the same players behind).
 - `js/equity.js` — 7-card evaluator and Monte Carlo hand-vs-range equity.
 - `js/ev.js` — approximate preflop EV model (fold equity + equity realization + rake + implied value, calibrated per spot on the hands GTO mixes) used for EV loss.
 - `js/explain.js` — rule-based "why" notes.

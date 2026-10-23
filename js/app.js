@@ -11,7 +11,7 @@
   const defaults = () => ({
     table: '6max',
     types: { rfi: true, vsOpen: true, vs3bet: true, cold4: true, squeeze: true, vsLimp: true },
-    positions: { '6max': null, '9max': null }, // null = all
+    positions: {}, // per table: null = all
     dealing: 'weighted',
     showRange: true,
     autoNext: false,
@@ -19,7 +19,8 @@
   });
   let settings = loadJSON(SETTINGS_KEY, defaults());
   if (!settings.types || !settings.positions) settings = defaults();
-  if (!('hu' in settings.positions)) settings.positions.hu = null;
+  if (!S.TABLES[settings.table]) settings.table = '6max';
+  for (const k in S.TABLES) if (!(k in settings.positions)) settings.positions[k] = null;
   for (const t of ['cold4', 'squeeze']) if (!(t in settings.types)) settings.types[t] = true; // added later: on by default
   let stats = loadJSON(STATS_KEY, freshStats());
   let current = null; // { spot, hand, cards, answered, chosen }
@@ -503,7 +504,7 @@
       const d = document.createElement('div');
       const reviewable = !!spotOfMistake(m);
       d.className = 'mistake ' + m.level + (reviewable ? ' clickable' : '');
-      d.innerHTML = '<b>' + m.hand + '</b> ' + m.title + ' <span class="muted">' + (m.table === '9max' ? '9-max' : m.table === 'hu' ? 'HU' : '6-max') + '</span>' + (m.loss ? ' <span class="loss">−' + m.loss.toFixed(2) + ' bb</span>' : '') + '<br><span class="muted">You: ' + m.chosen + ' · GTO: ' + m.gto + '</span>';
+      d.innerHTML = '<b>' + m.hand + '</b> ' + m.title + ' <span class="muted">' + (S.TABLES[m.table] ? S.TABLES[m.table].short : '') + '</span>' + (m.loss ? ' <span class="loss">−' + m.loss.toFixed(2) + ' bb</span>' : '') + '<br><span class="muted">You: ' + m.chosen + ' · GTO: ' + m.gto + '</span>';
       if (reviewable) { d.title = 'Replay this spot'; d.addEventListener('click', () => reviewMistake(m)); }
       mis.appendChild(d);
     }
@@ -658,7 +659,19 @@
     info.innerHTML = '<div class="muted">' + HOVER + ' a hand for its frequencies and the reasoning.</div>';
     $('#chart-why').classList.add('hidden');
     const src = $('#chart-source');
-    src.textContent = 'Data key: ' + spot.source + (spot.table === '9max' && !/EP9/.test(spot.source) && /UTG\+|LJ/.test(spot.hero + (spot.villain || '') + (spot.opener || '')) ? ' (9-max early positions reuse the structurally equivalent 6-max strategy, see About)' : '') + (spot.opener && !/BTN_SB/.test(spot.source) ? ' (shared by every seat in your group facing this opener tier, see About)' : '');
+    src.textContent = 'Data key: ' + spot.source + seatNote(spot) + (spot.opener && !/BTN_SB/.test(spot.source) ? ' (shared by every seat in your group facing this opener tier, see About)' : '');
+  }
+  /* Footer note: which 9-max seat each seat in the spot plays as (same number of players left to act), and
+     when an early seat borrows the structurally equivalent 6-max chart. */
+  function seatNote(spot) {
+    const c = spot.canon;
+    if (!c) return '';
+    const pairs = [[spot.hero, c.hero], [spot.villain, c.villain], [spot.opener, c.opener]].filter(x => x[0] && x[0] !== x[1]);
+    const notes = [];
+    if (pairs.length) notes.push(pairs.map(x => x[0] + ' plays as the 9-max ' + x[1]).join(', ') + ', the seat with the same players left to act');
+    const early = /UTG\+|LJ/.test(c.hero + (c.villain || '') + (c.opener || ''));
+    if (early && !/EP9|RFI9 UTG/.test(spot.source)) notes.push('early seats reuse the structurally equivalent 6-max strategy');
+    return notes.length ? ' (' + notes.join('; ') + ', see About)' : '';
   }
   /* One chart for every position: each hand is coloured by the earliest seat that raises it (later seats are
      looser); hover shows every seat's frequency. */

@@ -4,26 +4,37 @@
   const H = root.Hands;
   const R = root.RANGES;
 
+  /* Ring tables of 3-9 players. A seat with the same number of players left to act faces the same decision at
+     any table size, so every seat maps to the 9-max seat with that many players behind it (canon): 6-max UTG plays
+     like 9-max LJ, 8-max UTG like 9-max UTG+1, 3-max BTN like the 9-max BTN after everyone else folds. Spots are
+     built on the canonical seats and shown with each table's own seat names. */
+  const NINE = ['UTG', 'UTG+1', 'UTG+2', 'LJ', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+  function ring(n, name, positions) { return { key: n + 'max', name, short: n + '-max', positions, canon: NINE.slice(9 - n) }; }
   const TABLES = {
-    '6max': { key: '6max', name: '6-max', positions: ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'] },
-    '9max': { key: '9max', name: '9-max (full ring)', positions: ['UTG', 'UTG+1', 'UTG+2', 'LJ', 'HJ', 'CO', 'BTN', 'SB', 'BB'] },
-    'hu':   { key: 'hu', name: 'Heads-up', positions: ['SB', 'BB'], dealer: 'SB' }
+    'hu':   { key: 'hu', name: 'Heads-up', short: 'HU', positions: ['SB', 'BB'], dealer: 'SB' },
+    '3max': ring(3, '3-max', ['BTN', 'SB', 'BB']),
+    '4max': ring(4, '4-max', ['CO', 'BTN', 'SB', 'BB']),
+    '5max': ring(5, '5-max', ['HJ', 'CO', 'BTN', 'SB', 'BB']),
+    '6max': ring(6, '6-max', ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB']),
+    '7max': ring(7, '7-max', ['UTG', 'LJ', 'HJ', 'CO', 'BTN', 'SB', 'BB']),
+    '8max': ring(8, '8-max', ['UTG', 'UTG+1', 'LJ', 'HJ', 'CO', 'BTN', 'SB', 'BB']),
+    '9max': ring(9, '9-max (full ring)', NINE.slice())
   };
   const POSITION_NAMES = {
     'UTG': 'Under the gun', 'UTG+1': 'UTG+1', 'UTG+2': 'UTG+2', 'LJ': 'Lojack', 'HJ': 'Hijack',
     'CO': 'Cutoff', 'BTN': 'Button', 'SB': 'Small blind', 'BB': 'Big blind'
   };
-  // 9-max early positions share the 6-max UTG strategies (see About page).
+  // 9-max early positions share the 6-max UTG strategies (see About page). pos is a canonical (9-max) seat.
   function classOf(pos) {
     return (pos === 'UTG+1' || pos === 'UTG+2' || pos === 'LJ') ? 'UTG' : pos;
   }
   /* Opener tier for the vs-open / vs-3-bet charts. 9-max UTG and UTG+1 open far tighter than 6-max UTG, so
      their opponents use the *_vs_EP9 charts; UTG..UTG+2 answer a 3-bet with the EP9_* charts. */
-  function openerClassVsOpen(table, pos) {
-    return table === '9max' && (pos === 'UTG' || pos === 'UTG+1') ? 'EP9' : classOf(pos);
+  function openerClassVsOpen(pos) {
+    return pos === 'UTG' || pos === 'UTG+1' ? 'EP9' : classOf(pos);
   }
-  function openerClassVs3bet(table, pos) {
-    return table === '9max' && (pos === 'UTG' || pos === 'UTG+1' || pos === 'UTG+2') ? 'EP9' : classOf(pos);
+  function openerClassVs3bet(pos) {
+    return pos === 'UTG' || pos === 'UTG+1' || pos === 'UTG+2' ? 'EP9' : classOf(pos);
   }
   /* Sizes follow the reference solution the ranges were checked against (see About page). */
   function openSize(pos) { return 2.5; }
@@ -100,9 +111,21 @@
 
   function buildSpots(tableKey) {
     const T = TABLES[tableKey];
-    const P = T.positions;
+    const P = T.canon; // spots are built on canonical 9-max seats ...
+    const nm = p => T.positions[P.indexOf(p)]; // ... and shown with this table's seat names
+    const full = p => POSITION_NAMES[nm(p)];
     const spots = [];
-    const rfiData = tableKey === '6max' ? R.RFI6 : R.RFI9;
+    const rfiData = R.RFI9;
+    function add(spot) {
+      const seats = {};
+      for (const p in spot.seats) seats[nm(p)] = spot.seats[p];
+      spot.canon = { hero: spot.hero, villain: spot.villain, opener: spot.opener || null };
+      spot.hero = nm(spot.hero);
+      if (spot.villain) spot.villain = nm(spot.villain);
+      if (spot.opener) spot.opener = nm(spot.opener);
+      spot.seats = seats;
+      spots.push(spot);
+    }
 
     // ---- RFI ----
     for (let i = 0; i < P.length; i++) {
@@ -113,11 +136,11 @@
       for (let k = 0; k < i; k++) seats[P[k]] = { status: 'fold', bet: 0, label: 'Fold' };
       seats[hero] = { status: 'hero', bet: hero === 'SB' ? 0.5 : 0, label: hero === 'SB' ? 'SB' : '' };
       const foldedBefore = i;
-      spots.push({
-        id: tableKey + ':rfi:' + hero,
+      add({
+        id: tableKey + ':rfi:' + nm(hero),
         table: tableKey, type: 'rfi', hero, villain: null,
-        title: hero + ' open',
-        description: (foldedBefore === 0 ? 'You are first to act' : 'Everyone folds to you') + ' in the ' + POSITION_NAMES[hero] + '.',
+        title: nm(hero) + ' open',
+        description: (foldedBefore === 0 ? 'You are first to act' : 'Everyone folds to you') + ' in the ' + full(hero) + '.',
         question: 'Raise to ' + size + 'bb, ' + (hero === 'SB' ? 'limp' : 'call') + ', or fold?',
         actions: [
           { key: 'raise', label: 'Raise ' + size + 'bb', color: COLORS.raise },
@@ -126,7 +149,7 @@
         ],
         // only the SB has a limping range; open-limping from UTG..BTN is never part of the solver strategy
         strategy: strategyFor({ actions: ['raise', 'limp', 'fold'], raise: rfiData[hero], limp: rfiData[hero + '_LIMP'] || '' }),
-        source: 'RFI ' + tableKey + ' ' + hero,
+        source: 'RFI9 ' + hero,
         seats, pot: 1.5
       });
     }
@@ -137,7 +160,7 @@
       if (villain === 'BB') continue;
       for (let h = v + 1; h < P.length; h++) {
         const hero = P[h];
-        const look = lookupVsOpen(classOf(hero), openerClassVsOpen(tableKey, villain));
+        const look = lookupVsOpen(classOf(hero), openerClassVsOpen(villain));
         if (!look.data) continue;
         const open = openSize(villain);
         const tb = threeBetSize(hero, villain);
@@ -151,11 +174,11 @@
         if (hero !== 'BB') pot += 1;
         if (hero === 'SB') pot += 0.5;
         if (hero === 'BB') pot += 1;
-        spots.push({
-          id: tableKey + ':vsOpen:' + hero + ':' + villain,
+        add({
+          id: tableKey + ':vsOpen:' + nm(hero) + ':' + nm(villain),
           table: tableKey, type: 'vsOpen', hero, villain,
-          title: hero + ' vs ' + villain + ' open',
-          description: POSITION_NAMES[villain] + ' raises to ' + open + 'bb' + (h - v > 1 ? ', everyone else folds to you' : '') + ' in the ' + POSITION_NAMES[hero] + '.',
+          title: nm(hero) + ' vs ' + nm(villain) + ' open',
+          description: full(villain) + ' raises to ' + open + 'bb' + (h - v > 1 ? ', everyone else folds to you' : '') + ' in the ' + full(hero) + '.',
           question: '3-bet to ' + tb + 'bb, call, or fold?',
           actions: [
             { key: 'raise', label: '3-Bet ' + tb + 'bb', color: COLORS.raise },
@@ -175,7 +198,7 @@
       if (hero === 'BB') continue;
       for (let v = h + 1; v < P.length; v++) {
         const villain = P[v];
-        const look = lookupVs3bet(openerClassVs3bet(tableKey, hero), classOf(villain));
+        const look = lookupVs3bet(openerClassVs3bet(hero), classOf(villain));
         if (!look.data) continue;
         const openStrat = strategyFor({ actions: ['raise', 'fold'], raise: rfiData[hero] });
         const prior = {};
@@ -192,11 +215,11 @@
         let pot = open + tb;
         if (hero !== 'SB' && villain !== 'SB') pot += 0.5;
         if (villain !== 'BB') pot += 1;
-        spots.push({
-          id: tableKey + ':vs3bet:' + hero + ':' + villain,
+        add({
+          id: tableKey + ':vs3bet:' + nm(hero) + ':' + nm(villain),
           table: tableKey, type: 'vs3bet', hero, villain,
-          title: hero + ' vs ' + villain + ' 3-bet',
-          description: 'You raise to ' + open + 'bb from the ' + POSITION_NAMES[hero] + ', the ' + POSITION_NAMES[villain] + ' 3-bets to ' + tb + 'bb, everyone else folds.',
+          title: nm(hero) + ' vs ' + nm(villain) + ' 3-bet',
+          description: 'You raise to ' + open + 'bb from the ' + full(hero) + ', the ' + full(villain) + ' 3-bets to ' + tb + 'bb, everyone else folds.',
           question: '4-bet to ~' + fb + 'bb, call, or fold?',
           actions: [
             { key: 'raise', label: '4-Bet ' + fb + 'bb', color: COLORS.raise4 },
@@ -234,8 +257,8 @@
               const tb = threeBetSize(mid, opener);
               size = cold4BetSize(tb, hero);
               seats[mid] = { status: '3bet', bet: tb, label: '3-Bet ' + tb };
-              title = hero + ' vs ' + opener + ' open + ' + mid + ' 3-bet';
-              desc = POSITION_NAMES[opener] + ' raises to ' + open + 'bb, the ' + POSITION_NAMES[mid] + ' 3-bets to ' + tb + 'bb' + (h - m > 1 ? ', everyone else folds to you' : '') + ' in the ' + POSITION_NAMES[hero] + '.';
+              title = nm(hero) + ' vs ' + nm(opener) + ' open + ' + nm(mid) + ' 3-bet';
+              desc = full(opener) + ' raises to ' + open + 'bb, the ' + full(mid) + ' 3-bets to ' + tb + 'bb' + (h - m > 1 ? ', everyone else folds to you' : '') + ' in the ' + full(hero) + '.';
               actions = [
                 { key: 'raise', label: '4-Bet ' + size + 'bb', color: COLORS.raise4 },
                 { key: 'call', label: 'Call', color: COLORS.call },
@@ -244,8 +267,8 @@
             } else {
               size = squeezeSize(hero, opener, mid);
               seats[mid] = { status: 'call', bet: open, label: 'Call ' + open };
-              title = hero + ' vs ' + opener + ' open + ' + mid + ' call';
-              desc = POSITION_NAMES[opener] + ' raises to ' + open + 'bb, the ' + POSITION_NAMES[mid] + ' calls' + (h - m > 1 ? ', everyone else folds to you' : '') + ' in the ' + POSITION_NAMES[hero] + '.';
+              title = nm(hero) + ' vs ' + nm(opener) + ' open + ' + nm(mid) + ' call';
+              desc = full(opener) + ' raises to ' + open + 'bb, the ' + full(mid) + ' calls' + (h - m > 1 ? ', everyone else folds to you' : '') + ' in the ' + full(hero) + '.';
               actions = [
                 { key: 'raise', label: 'Squeeze ' + size + 'bb', color: COLORS.raise },
                 { key: 'call', label: 'Call', color: COLORS.call },
@@ -254,8 +277,8 @@
             }
             for (let k = m + 1; k < h; k++) seats[P[k]] = { status: 'fold', bet: 0, label: 'Fold' };
             seats[hero] = { status: 'hero', bet: hero === 'SB' ? 0.5 : hero === 'BB' ? 1 : 0, label: hero === 'SB' ? 'SB' : hero === 'BB' ? 'BB' : '' };
-            spots.push({
-              id: tableKey + ':' + type + ':' + hero + ':' + opener + ':' + mid,
+            add({
+              id: tableKey + ':' + type + ':' + nm(hero) + ':' + nm(opener) + ':' + nm(mid),
               table: tableKey, type, hero, villain: mid, opener,
               title,
               description: desc,
@@ -276,7 +299,7 @@
       for (const p of P) if (p !== 'SB' && p !== 'BB') seats[p] = { status: 'fold', bet: 0, label: 'Fold' };
       seats.SB = { status: 'limp', bet: 1, label: 'Limp 1' };
       seats.BB = { status: 'hero', bet: 1, label: 'BB' };
-      spots.push({
+      add({
         id: tableKey + ':vsLimp:BB:SB',
         table: tableKey, type: 'vsLimp', hero: 'BB', villain: 'SB',
         title: 'BB vs SB limp',
@@ -299,7 +322,7 @@
       for (const p of P) if (p !== 'SB' && p !== 'BB') seats[p] = { status: 'fold', bet: 0, label: 'Fold' };
       seats.SB = { status: 'hero', bet: 1, label: 'Limp 1' };
       seats.BB = { status: 'raise', bet: ISO_SIZE, label: 'Raise ' + ISO_SIZE };
-      spots.push({
+      add({
         id: tableKey + ':vsLimp:SB:BB',
         table: tableKey, type: 'vsLimp', hero: 'SB', villain: 'BB',
         title: 'SB vs BB raise after limp',

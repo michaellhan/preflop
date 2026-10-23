@@ -23,11 +23,16 @@
     <div class="trainer">
       <aside class="panel settings-panel">
         <div class="group">
-          <h3>Table size</h3>
+          <h3>Players at the table</h3>
           <div class="segmented" id="table-select">
-            <button data-table="6max">6-max</button>
-            <button data-table="9max">9-max</button>
-            <button data-table="hu">HU</button>
+            <button data-table="hu" title="Heads-up">HU</button>
+            <button data-table="3max" title="3-max">3</button>
+            <button data-table="4max" title="4-max">4</button>
+            <button data-table="5max" title="5-max">5</button>
+            <button data-table="6max" title="6-max">6</button>
+            <button data-table="7max" title="7-max">7</button>
+            <button data-table="8max" title="8-max">8</button>
+            <button data-table="9max" title="9-max">9</button>
           </div>
         </div>
         <div class="group">
@@ -103,11 +108,16 @@
     <div class="charts">
       <aside class="panel">
         <div class="group">
-          <h3>Table size</h3>
+          <h3>Players at the table</h3>
           <div class="segmented" id="chart-table">
-            <button data-table="6max">6-max</button>
-            <button data-table="9max">9-max</button>
-            <button data-table="hu">HU</button>
+            <button data-table="hu" title="Heads-up">HU</button>
+            <button data-table="3max" title="3-max">3</button>
+            <button data-table="4max" title="4-max">4</button>
+            <button data-table="5max" title="5-max">5</button>
+            <button data-table="6max" title="6-max">6</button>
+            <button data-table="7max" title="7-max">7</button>
+            <button data-table="8max" title="8-max">8</button>
+            <button data-table="9max" title="9-max">9</button>
           </div>
         </div>
         <div class="group">
@@ -167,7 +177,7 @@
         <tr><td>Squeeze size</td><td>9.5bb in position, 16bb from the SB, 18bb from the BB (17bb over a button open and SB call)</td></tr>
         <tr><td>Limped pot sizes</td><td>BB raises a SB limp to 3bb; the SB re-raises to 15bb</td></tr>
         <tr><td>Rake</td><td>5% capped at 0.5bb (as in the reference solution), taken only from pots that see a flop (no flop, no drop). Rake and the players still to act behind are why cold calls are rare outside the big blind: the HJ and CO flat under 2% of hands, the button and SB about 2.5-4.5%</td></tr>
-        <tr><td>Positions</td><td>6-max: UTG, HJ, CO, BTN, SB, BB. 9-max: UTG, UTG+1, UTG+2, LJ, HJ, CO, BTN, SB, BB. Heads-up: SB (also the button, in position postflop) and BB</td></tr>
+        <tr><td>Positions</td><td>3-max: BTN, SB, BB. 4-max: CO, BTN, SB, BB. 5-max: HJ, CO, BTN, SB, BB. 6-max: UTG, HJ, CO, BTN, SB, BB. 7-max: UTG, LJ, HJ, CO, BTN, SB, BB. 8-max: UTG, UTG+1, LJ, HJ, CO, BTN, SB, BB. 9-max: UTG, UTG+1, UTG+2, LJ, HJ, CO, BTN, SB, BB. Heads-up: SB (also the button, in position postflop) and BB</td></tr>
         <tr><td>Heads-up sizes</td><td>SB opens 2.5bb or limps; BB 3-bets to 10bb, 4-bet ~22bb; BB raises a limp to 4bb, SB re-raises to 12bb</td></tr>
       </table>
 
@@ -180,6 +190,7 @@
       </ul>
       <p>Different rake or sizing assumptions move the edges of every range, and two solvers can disagree by 20-30% on a single mixed hand. If you train against a solver with different sizes, expect the edges to differ, not the core.</p>
       <p><b>Heads-up note:</b> heads-up is its own model, not a blind-vs-blind spot from 6-max. The small blind is the button and acts last postflop, so it raises about 55% and limps about 32% of hands, folding only the worst offsuit hands, and the big blind, out of position, defends about two-thirds of hands with more 3-bets. The five heads-up spots (SB open with a limp option, BB vs open, SB vs 3-bet, BB vs limp, SB vs a raise after limping) have their own ranges.</p>
+      <p><b>Table sizes:</b> every table from 3 to 9 players uses the same charts, matched seat by seat on the number of players still to act. A seat with <i>n</i> players behind it faces the same decision whether the seats before it were folded or never existed, so each seat plays as the 9-max seat with that many players behind: 3-max is the 9-max CO-and-earlier-fold spot (BTN, SB, BB), 4-max adds the CO, 5-max the HJ, 6-max UTG is the 9-max LJ (5 behind), 7-max UTG is UTG+2 (6 behind), 8-max UTG and UTG+1 are 9-max UTG+1 and UTG+2 (7 and 6 behind; 8-max UTG is where the PokerCoaching 8-max charts come from). The chart footer names the 9-max seat a spot uses. What this leaves out is card removal: players who folded in front of you hold slightly weaker hands than average, so the players left are fractionally stronger. Real 3- and 4-handed solves open the button and cutoff a few percent wider than the same seat at a full table; the difference is small next to the 5% rounding of the charts, and no free per-hand 3- to 5-handed 100bb solution exists to replace it with.</p>
       <p><b>9-max note:</b> a 9-max seat with the same number of players left to act is structurally the same decision as its 6-max counterpart, so LJ/HJ/CO/BTN/SB opens reuse the 6-max strategies and UTG, UTG+1 and UTG+2 have their own tighter opening ranges. When an early-position player <i>responds</i> to an early-position open (e.g. LJ vs UTG), the app uses the tightest 6-max response (HJ vs UTG); these spots are marked in the chart footer. Two exceptions: opens from 9-max UTG and UTG+1 (about 11-13% of hands, far tighter than the 6-max UTG open) are answered with tighter dedicated charts (keys ending in <code>_vs_EP9</code>), and UTG, UTG+1 and UTG+2 answer a 3-bet with their own <code>EP9_*</code> charts, which 4-bet fewer bluffs. The 9-max UTG open follows GTO Wizard's published <a href="https://blog.gtowizard.com/navigating-nasty-rivers-out-of-position/" target="_blank" rel="noopener">9-handed 100bb UTG range</a> (read from the chart, rounded to 5%). UTG+1 and UTG+2, the responses to a UTG or UTG+1 open (<code>_vs_EP9</code>) and UTG-UTG+2 facing a 3-bet (<code>EP9_*</code>) follow PokerCoaching's 8-max 100bb cash charts, matched by the number of players left behind (8-max UTG = 9-max UTG+1). That solution opens 3bb and 3-bets to 10-12bb, a little bigger than the sizes shown here, and flats more against early opens than the 6-max solution. Each opening seat is capped at the next seat's frequency so ranges never tighten as you move later.</p>
 
       <div class="two-col">

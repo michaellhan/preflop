@@ -8,7 +8,7 @@ const ctx = vm.createContext({ console });
 for (const f of ['hands.js', 'ranges.js', 'spots.js']) vm.runInContext(fs.readFileSync(path.join(dir, f), 'utf8'), ctx, { filename: f });
 const { Hands, Spots } = ctx;
 let failed = false;
-for (const table of ['6max', '9max', 'hu']) {
+for (const table of Object.keys(Spots.TABLES)) {
   let spots;
   try { spots = Spots.getSpots(table); } catch (e) { console.error('ERROR building', table, e.message); failed = true; continue; }
   console.log('\n== ' + table + ' (' + spots.length + ' spots) ==');
