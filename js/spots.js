@@ -28,12 +28,9 @@
   function classOf(pos) {
     return (pos === 'UTG+1' || pos === 'UTG+2' || pos === 'LJ') ? 'UTG' : pos;
   }
-  /* Opener tier for the vs-open / vs-3-bet charts. 9-max UTG and UTG+1 open far tighter than 6-max UTG, so
-     their opponents use the *_vs_EP9 charts; UTG..UTG+2 answer a 3-bet with the EP9_* charts. */
-  function openerClassVsOpen(pos) {
-    return pos === 'UTG' || pos === 'UTG+1' ? 'EP9' : classOf(pos);
-  }
-  function openerClassVs3bet(pos) {
+  /* Opener tier for the vs-open / vs-3-bet charts. 9-max UTG..UTG+2 open far tighter than 6-max UTG, so their
+     opponents use the *_vs_EP9 charts and they answer a 3-bet with the EP9_* charts. */
+  function openerClass(pos) {
     return pos === 'UTG' || pos === 'UTG+1' || pos === 'UTG+2' ? 'EP9' : classOf(pos);
   }
   /* Sizes follow the reference solution the ranges were checked against (see About page). */
@@ -79,7 +76,7 @@
 
   function lookupVsOpen(heroClass, villainClass) {
     let key = heroClass + '_vs_' + villainClass;
-    if (heroClass === 'UTG' && (villainClass === 'UTG' || villainClass === 'EP9')) key = 'HJ_vs_' + villainClass;
+    if (heroClass === 'UTG' && villainClass === 'EP9') key = 'HJ_vs_EP9';
     return { key, data: R.VS_OPEN[key] };
   }
   function lookupVs3bet(openerClass, threeBettorClass) {
@@ -160,7 +157,7 @@
       if (villain === 'BB') continue;
       for (let h = v + 1; h < P.length; h++) {
         const hero = P[h];
-        const look = lookupVsOpen(classOf(hero), openerClassVsOpen(villain));
+        const look = lookupVsOpen(classOf(hero), openerClass(villain));
         if (!look.data) continue;
         const open = openSize(villain);
         const tb = threeBetSize(hero, villain);
@@ -198,7 +195,7 @@
       if (hero === 'BB') continue;
       for (let v = h + 1; v < P.length; v++) {
         const villain = P[v];
-        const look = lookupVs3bet(openerClassVs3bet(hero), classOf(villain));
+        const look = lookupVs3bet(openerClass(hero), classOf(villain));
         if (!look.data) continue;
         const openStrat = strategyFor({ actions: ['raise', 'fold'], raise: rfiData[hero] });
         const prior = {};

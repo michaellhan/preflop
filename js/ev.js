@@ -442,7 +442,7 @@
      two actions is indifferent between them, so the shifts are fitted (least squares) to make the median
      EV gap zero on the hands GTO mixes. An action with no mixed hands is anchored instead by the threshold
      that best separates the hands that purely take it from the hands that purely take the residual action. */
-  const MODEL_VERSION = 4;
+  const MODEL_VERSION = 5;
   const CAL_KEY = 'preflop-evcal-v' + MODEL_VERSION + '-' + seedOf(JSON.stringify(root.RANGES)).toString(36);
   let calStore = null;
   function loadCal() { if (calStore) return calStore; try { calStore = JSON.parse(root.localStorage.getItem(CAL_KEY) || '{}'); } catch (e) { calStore = {}; } return calStore; }

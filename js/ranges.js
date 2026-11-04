@@ -6,10 +6,10 @@
    Frequencies are per-hand action weights (0..1). Hands not listed take the residual
    action (fold, or check for the BB vs limp spot). Mixed frequencies are rounded to
    5% steps. These are hand-curated approximations of 100bb equilibrium solver output
-   (see the About page); they are not exports from any commercial product. Every 6-max
-   spot was checked hand by hand against a free 100bb 6-max solution in October 2026:
-   hands off by more than 10% were corrected, and the blind-vs-blind and limped-pot
-   charts follow it throughout. */
+   from the sources named on the About page; the heads-up charts are hand-built and are
+   not solver output. Every 6-max spot was checked hand by hand against a free 100bb
+   6-max solution in October 2026: hands off by more than 10% were corrected, and the
+   blind-vs-blind and limped-pot charts follow it throughout. */
 (function (root) {
   'use strict';
 
@@ -62,9 +62,10 @@
       raise: "QQ+, JJ:0.4, TT:0.1, AQs+, AJs:0.2, ATs:0.35, A7s:0.15, A6s:0.35, A5s:0.45, A4s:0.55, A3s:0.4, A2s:0.3, KQs:0.85, KJs:0.45, KTs:0.3, K9s:0.15, K8s:0.2, K7s:0.25, K6s:0.15, K5s:0.1, K4s:0.2, QJs:0.6, QTs:0.1, Q9s:0.2, JTs:0.3, T9s:0.25, T8s:0.35, T7s:0.2, 87s:0.45, 76s:0.2, 65s:0.35, 54s:0.2, AKo, AQo:0.2, KQo:0.35, KJo:0.1",
       call:  "JJ:0.6, TT:0.9, 22-99, AJs:0.8, ATs:0.65, A8s-A9s, A7s:0.85, A6s:0.65, A5s:0.55, A4s:0.45, A3s:0.6, A2s:0.7, KQs:0.15, KJs:0.55, KTs:0.7, K9s:0.85, K8s:0.8, K7s:0.75, K6s:0.85, K5s:0.9, K4s:0.8, K2s-K3s:0.2, QJs:0.4, QTs:0.9, Q9s:0.8, Q8s, Q6s, Q5s:0.25, JTs:0.7, J8s-J9s, T9s:0.75, T8s:0.65, T7s:0.8, 96s+, 87s:0.55, 86s, 85s:0.95, 76s:0.8, 75s, 65s:0.65, 63s-64s, 54s:0.8, 53s, 52s:0.6, 43s, 42s:0.4, AQo:0.8, ATo-AJo, KQo:0.65, KJo:0.6, KTo:0.25, QJo:0.3, QTo:0.15, JTo:0.45"
     },
-    /* Facing an open from 9-max UTG / UTG+1: PokerCoaching's 8-max 100bb cash charts vs a UTG open (8-max UTG has
-       the same players behind as 9-max UTG+1), rounded to 5%. HJ_vs_EP9 (UTG+1..HJ responding) averages the 8-max
-       UTG+1, LJ and HJ charts. */
+    /* Facing an open from 9-max UTG / UTG+1 / UTG+2: PokerCoaching's 8-max 100bb cash charts vs a UTG open (8-max
+       UTG has the same players behind as 9-max UTG+1), rounded to 5%, via a third-party copy of that data. HJ_vs_EP9
+       (UTG+1..HJ responding) averages the 8-max UTG+1, LJ and HJ charts. A UTG+2 open is a little wider than these
+       charts assume; no chart built for it is available, and this is closer to it than the 6-max UTG charts. */
     HJ_vs_EP9: {
       raise: "AA, KK:0.7, QQ:0.3, TT-JJ:0.1, 88-99:0.2, 77:0.15, AKs:0.8, ATs-AJs:0.05, A8s-A9s:0.1, A7s:0.55, A5s:0.6, A4s:0.55, A3s:0.1, KQs:0.3, KJs:0.95, KTs:0.8, K9s:0.05, K5s:0.05, JTs:0.2, T9s:0.05, 76s:0.1, 65s:0.5, 54s:0.05, AKo:0.65, AQo:0.1",
       call:  "KK:0.3, QQ:0.7, TT-JJ:0.9, 99:0.65, 88:0.4, 66-77:0.25, 55:0.05, AKs:0.2, AQs, ATs-AJs:0.95, A5s:0.4, A4s:0.25, KQs:0.7, KJs:0.05, KTs:0.2, QJs:0.35, JTs:0.65, 76s:0.05, 65s:0.45, 54s:0.2, AKo:0.35"
