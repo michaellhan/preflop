@@ -35,7 +35,13 @@ pub fn tree() -> Vec<Node> {
 pub type Strategy = Vec<Vec<Vec<f64>>>;
 pub type Values = Vec<[Vec<f64>; 2]>; // values[pot][player][class]
 
-pub struct Ctx<'a> { pub tree: &'a [Node], pub eq: &'a [Vec<f64>], pub compat: &'a [Vec<f64>], pub values: &'a Values }
+/// How a pot's postflop value responds when the opponent's range differs from the one it was solved against:
+/// `values` hold each hand's value against the solved range, and a hand's value against a single opposing hand is
+/// taken to move with its preflop equity against that hand, `response` x pot x (equity - equity against the solved range).
+/// At a fixed point the ranges equal the solved ones, so this only shapes how the preflop solve responds to change.
+pub struct PotRef { pub size: f64, pub ref_eq: [Vec<f64>; 2] }
+
+pub struct Ctx<'a> { pub tree: &'a [Node], pub eq: &'a [Vec<f64>], pub compat: &'a [Vec<f64>], pub values: &'a Values, pub pots: &'a [PotRef], pub response: f64 }
 
 impl Ctx<'_> {
     fn opp_mass(&self, reach: &[f64]) -> Vec<f64> {
@@ -48,8 +54,13 @@ impl Ctx<'_> {
                 self.opp_mass(opp).iter().map(|m| m * sign).collect()
             }
             Child::Pot(p) => {
-                let v = &self.values[p][me];
-                self.opp_mass(opp).iter().zip(v).map(|(m, x)| m * x).collect()
+                let (v, r, k) = (&self.values[p][me], &self.pots[p].ref_eq[me], self.response * self.pots[p].size);
+                (0..N).map(|h| {
+                    let (c, e) = (&self.compat[h], &self.eq[h]);
+                    let (mut m, mut me_eq) = (0.0, 0.0);
+                    for o in 0..N { let w = c[o] * opp[o]; m += w; me_eq += w * e[o]; }
+                    m * (v[h] - k * r[h]) + k * me_eq
+                }).collect()
             }
             Child::AllIn => (0..N).map(|h| {
                 let (c, e) = (&self.compat[h], &self.eq[h]);

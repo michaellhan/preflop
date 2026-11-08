@@ -238,3 +238,15 @@ mod tests {
         for x in f { assert!(x[0] < x[1] && x[1] < x[2]); }
     }
 }
+
+#[cfg(test)]
+mod sample_stats {
+    #[test]
+    fn rank_counts() {
+        for n in [20usize, 50] {
+            let mut c = [0u32; 13];
+            for f in super::sample_flops(n) { for x in f { c[(x / 4) as usize] += 1; } }
+            println!("{n} flops, cards of each rank 2..A: {:?} (expected {:.1} each)", c, 3.0 * n as f64 / 13.0);
+        }
+    }
+}

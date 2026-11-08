@@ -11,7 +11,7 @@ use std::{collections::HashMap, fs, io::Write, process::Command, time::{Duration
 const CHIPS: f32 = 20.0; // chips per bb
 const FLOOR: f32 = 0.001; // every hand stays in every pot at this weight so it gets a value for deviating
 
-struct Opts { dir: String, rounds: usize, flops: usize, early_flops: usize, early_rounds: usize, tree: String, target: f32, early_target: f32, alpha: f64, late_alpha: f64, iters: usize, start: String }
+struct Opts { dir: String, rounds: usize, flops: usize, early_flops: usize, early_rounds: usize, tree: String, target: f32, early_target: f32, alpha: f64, late_alpha: f64, iters: usize, start: String, response: f64 }
 
 fn arg(a: &HashMap<String, String>, k: &str, d: &str) -> String { a.get(k).cloned().unwrap_or(d.to_string()) }
 
@@ -24,7 +24,7 @@ fn parse() -> Opts {
         early_rounds: arg(&a, "early-rounds", "5").parse().unwrap(), tree: arg(&a, "tree", "B"),
         target: arg(&a, "target", "0.5").parse().unwrap(), early_target: arg(&a, "early-target", "1.0").parse().unwrap(),
         alpha: arg(&a, "alpha", "0.4").parse().unwrap(), late_alpha: arg(&a, "late-alpha", "0.2").parse().unwrap(),
-        iters: arg(&a, "iters", "4000").parse().unwrap(), start: arg(&a, "start", "start.txt"),
+        iters: arg(&a, "iters", "4000").parse().unwrap(), start: arg(&a, "start", "start.txt"), response: arg(&a, "response", "1.0").parse().unwrap(),
     }
 }
 
@@ -195,7 +195,18 @@ fn main() {
             values.push([val(SB), val(BB)]);
             log(&o.dir, &format!("round {round} pot {}: {nf} flops, {secs:.0}s, peak {peak:.2}GB, worst expl {worst:.3}% pot", POT_INFO[p].0));
         }
-        let ctx = Ctx { tree: &t, eq: &eq, compat: &compat, values: &values };
+        let refs: Vec<PotRef> = (0..POTS).map(|p| {
+            let side = |pl: usize| -> Vec<f64> {
+                let opp: Vec<f64> = ranges[p][1 - pl].iter().map(|w| w.max(FLOOR as f64)).collect();
+                (0..N).map(|h| {
+                    let (mut m, mut e) = (0.0, 0.0);
+                    for o in 0..N { let w = compat[h][o] * opp[o]; m += w; e += w * eq[h][o]; }
+                    e / m
+                }).collect()
+            };
+            PotRef { size: 2.0 * POT_INFO[p].1, ref_eq: [side(SB), side(BB)] }
+        }).collect();
+        let ctx = Ctx { tree: &t, eq: &eq, compat: &compat, values: &values, pots: &refs, response: o.response };
         let inner = preflop::solve(&ctx, o.iters, &s);
         let alpha = if early { o.alpha } else { o.late_alpha };
         let mut next = s.clone();
