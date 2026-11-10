@@ -1,8 +1,12 @@
 // Checks a heads-up run against the pass bar and writes the result in the site's chart format.
-// Usage: node report.mjs [runDir]   (default runs/hu). Reads the last two strategy_N.txt files.
+// Usage: node report.mjs [runDir] [--avg N]   (default runs/hu, N 1). Uses the average of the last N strategy_N.txt
+// files, each weighted by how often a hand reaches the spot in that round, and compares it with the average one round
+// earlier. Averaging smooths the round-to-round flips of near-indifferent hands; use only rounds from the same settings.
 import fs from 'node:fs'; import vm from 'node:vm';
 
-const run = process.argv[2] || 'runs/hu';
+const argv = process.argv.slice(2), ai = argv.indexOf('--avg');
+const avgN = ai >= 0 ? +argv[ai + 1] : 1;
+const run = argv.find((x, i) => !x.startsWith('--') && i !== ai + 1) || 'runs/hu';
 const here = new URL('.', import.meta.url).pathname;
 const ctx = vm.createContext({ console });
 for (const f of ['hands.js', 'ranges.js']) vm.runInContext(fs.readFileSync(here + '../js/' + f, 'utf8'), ctx, { filename: f });
@@ -10,7 +14,6 @@ const { Hands, RANGES: { HU } } = ctx;
 const ALL = Hands.ALL_HANDS, n = h => Hands.combos(h);
 
 const files = fs.readdirSync(here + run).filter(f => /^strategy_\d+\.txt$/.test(f)).map(f => +f.match(/\d+/)[0]).sort((a, b) => a - b);
-const last = files.at(-1), prev = files.at(-2);
 const ACTIONS = {
   sb_open: ['raise', 'limp', 'fold'], bb_vs_open: ['raise', 'call', 'fold'], sb_vs_3bet: ['raise', 'call', 'fold'],
   bb_vs_4bet: ['raise', 'call', 'fold'], sb_vs_jam: ['call', 'fold'], bb_vs_limp: ['raise', 'check'],
@@ -24,20 +27,34 @@ function load(i) {
   }
   return s;
 }
-const S = load(last), P = load(prev);
-
 // reach of each player's hands at each node
 const one = Object.fromEntries(ALL.map(h => [h, 1]));
 const mul = (...xs) => Object.fromEntries(ALL.map(h => [h, xs.reduce((p, x) => p * x[h], 1)]));
-const reach = {
+const reachOf = S => ({
   sb_open: one, bb_vs_open: one, bb_vs_limp: one,
   sb_vs_3bet: S.sb_open.raise, sb_vs_iso: S.sb_open.limp,
   bb_vs_4bet: S.bb_vs_open.raise, bb_vs_limp3bet: S.bb_vs_limp.raise,
   sb_vs_jam: mul(S.sb_open.raise, S.sb_vs_3bet.raise), sb_vs_limpjam: mul(S.sb_open.limp, S.sb_vs_iso.raise),
-};
+});
+// average of rounds idx, weighted per hand by reach in each round (plain mean where no round reaches it)
+function average(idx) {
+  const ss = idx.map(load), rs = ss.map(reachOf), out = {};
+  for (const node in ACTIONS) {
+    out[node] = {}; for (const a of ACTIONS[node]) out[node][a] = {};
+    for (const h of ALL) {
+      const w = rs.map(r => r[node][h]), tw = w.reduce((x, y) => x + y, 0);
+      for (const a of ACTIONS[node]) out[node][a][h] = tw > 0 ? ss.reduce((t, s, i) => t + w[i] * s[node][a][h], 0) / tw : ss.reduce((t, s) => t + s[node][a][h], 0) / ss.length;
+    }
+  }
+  return out;
+}
+if (files.length < avgN + 1) { console.error(`need ${avgN + 1} strategy files for --avg ${avgN}, found ${files.length}`); process.exit(1); }
+const S = average(files.slice(-avgN)), P = average(files.slice(-avgN - 1, -1));
+const reach = reachOf(S);
 const pct = x => (100 * x).toFixed(1);
 
-console.log(`Run ${run}: comparing strategy_${last} with strategy_${prev}\n`);
+const span = k => avgN === 1 ? `strategy_${files.at(k)}` : `average of strategy_${files.at(k - avgN + 1)}-${files.at(k)}`;
+console.log(`Run ${run}: comparing ${span(-1)} with ${span(-2)}\n`);
 console.log('Node             share of hands reaching it, by action          moved since last round');
 let worstMove = 0;
 for (const node in ACTIONS) {

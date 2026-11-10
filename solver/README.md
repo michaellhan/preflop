@@ -15,5 +15,9 @@ SOLVER_WINDOW=23-8 caffeinate -i nice -n 5 ./target/release/hu-solver --dir runs
 Raise `--rounds` to continue a finished run. Progress is in `runs/hu/log.txt`, and each round's strategy in
 `runs/hu/strategy_N.txt`.
 
+`node report.mjs [runDir] [--avg N]` checks the pass bar against PokerCoaching's heads-up chart and writes
+`hu_charts.json`. With `--avg N` it uses the reach-weighted average of the last N rounds, which settles hands that
+flip between rounds because they are close to indifferent. Average only rounds run with the same settings.
+
 Limits: 169 hand classes preflop, one bet size per street, raises on the flop only, and postflop values held fixed
 within a round. The output is the equilibrium of that simplified game, not of real poker.
