@@ -34,17 +34,54 @@ fn log(dir: &str, s: &str) {
     writeln!(f, "{s}").unwrap();
 }
 
-/// Waits while the clock is outside SOLVER_WINDOW ("23-8" = 23:00 to 08:00). Unset means always run.
-fn wait_for_window() {
-    let Ok(w) = std::env::var("SOLVER_WINDOW") else { return };
-    let (a, b) = w.split_once('-').unwrap();
-    let (a, b): (u32, u32) = (a.parse().unwrap(), b.parse().unwrap());
+/// Writes through a temp file, flushed to disk before the rename, so a power cut leaves either the old file or the new one.
+fn write_durable(path: &str, body: &str) {
+    let tmp = format!("{path}.tmp");
+    let mut f = fs::File::create(&tmp).unwrap();
+    f.write_all(body.as_bytes()).unwrap();
+    f.sync_all().unwrap();
+    fs::rename(&tmp, path).unwrap();
+}
+
+/// Touched after every flop and every minute of waiting; the watchdog in run.sh restarts the solver if it goes stale.
+fn heartbeat(dir: &str) { let _ = fs::write(format!("{dir}/heartbeat"), format!("{:?}\n", std::time::SystemTime::now())); }
+
+fn on_battery() -> bool {
+    Command::new("pmset").args(["-g", "batt"]).output().map(|o| String::from_utf8_lossy(&o.stdout).contains("'Battery Power'")).unwrap_or(false)
+}
+
+fn hour() -> u32 {
+    let out = Command::new("date").arg("+%H").output().unwrap();
+    String::from_utf8_lossy(&out.stdout).trim().parse().unwrap()
+}
+
+/// Waits while the clock is outside SOLVER_WINDOW ("23-8" = 23:00 to 08:00; unset means always), and while the Mac
+/// runs on battery (a flat battery killed two runs; SOLVER_AC_ONLY=0 turns this off).
+fn wait_until_ok(dir: &str) {
+    let window = std::env::var("SOLVER_WINDOW").ok().map(|w| {
+        let (a, b) = w.split_once('-').unwrap();
+        (a.parse::<u32>().unwrap(), b.parse::<u32>().unwrap())
+    });
+    let ac_only = std::env::var("SOLVER_AC_ONLY").map(|v| v != "0").unwrap_or(true);
+    let mut said = "";
     loop {
-        let out = Command::new("date").arg("+%H").output().unwrap();
-        let h: u32 = String::from_utf8_lossy(&out.stdout).trim().parse().unwrap();
-        if if a <= b { h >= a && h < b } else { h >= a || h < b } { return; }
-        std::thread::sleep(Duration::from_secs(120));
+        let why = if ac_only && on_battery() { "on battery" }
+            else if let Some((a, b)) = window { let h = hour(); if if a <= b { h >= a && h < b } else { h >= a || h < b } { "" } else { "outside SOLVER_WINDOW" } }
+            else { "" };
+        if why.is_empty() { if !said.is_empty() { log(dir, "resumed"); } return; }
+        if why != said { log(dir, &format!("paused: {why}")); said = why; }
+        heartbeat(dir);
+        std::thread::sleep(Duration::from_secs(60));
     }
+}
+
+/// Reads a saved flop: header (exploitability, seconds) and 4N finite numbers. None if missing or damaged.
+fn read_flop(path: &str) -> Option<(f32, Vec<f64>)> {
+    let x = fs::read_to_string(path).ok()?;
+    let mut l = x.lines();
+    let e: f32 = l.next()?.split(' ').next()?.parse().ok()?;
+    let row: Vec<f64> = l.next()?.split(' ').map(|v| v.parse().ok()).collect::<Option<_>>()?;
+    (row.len() == 4 * N && row.iter().all(|v| v.is_finite()) && e.is_finite()).then_some((e, row))
 }
 
 fn load_strategy(path: &str, t: &[Node]) -> Strategy {
@@ -71,7 +108,7 @@ fn save_strategy(path: &str, t: &[Node], s: &Strategy) {
     for (n, node) in t.iter().enumerate() { for (a, act) in node.actions.iter().enumerate() { for h in 0..N {
         if s[n][a][h] > 1e-6 { o += &format!("{} {} {} {:.6}\n", node.name, act.0, label(h), s[n][a][h]); }
     } } }
-    fs::write(path, o).unwrap();
+    write_durable(path, &o);
 }
 
 fn tree_config(shape: &str, pot: i32, stack: i32) -> TreeConfig {
@@ -144,6 +181,7 @@ fn summary(t: &[Node], s: &Strategy) -> String {
 fn main() {
     let o = parse();
     fs::create_dir_all(&o.dir).unwrap();
+    heartbeat(&o.dir);
     let t = tree();
     let eq = equity_table(&format!("{}/equity.txt", o.dir), 40000);
     let compat = compat_table();
@@ -169,20 +207,16 @@ fn main() {
             let (mut worst, mut secs, mut peak) = (0.0f32, 0.0f64, 0.0f64);
             for (i, f) in flops.iter().enumerate() {
                 let path = format!("{rdir}/{}_{i}.txt", POT_INFO[p].0);
-                let row: Vec<f64> = match fs::read_to_string(&path) {
-                    Ok(x) => {
-                        let mut l = x.lines();
-                        let h: Vec<f32> = l.next().unwrap().split(' ').map(|v| v.parse().unwrap()).collect();
-                        worst = worst.max(h[0]);
-                        l.next().unwrap().split(' ').map(|v| v.parse().unwrap()).collect()
-                    }
-                    Err(_) => {
-                        wait_for_window();
+                let row: Vec<f64> = match read_flop(&path) {
+                    Some((e, row)) => { worst = worst.max(e); row }
+                    None => {
+                        if fs::metadata(&path).is_ok() { log(&o.dir, &format!("re-solving damaged {path}")); }
+                        wait_until_ok(&o.dir);
                         let (row, e, sec, mem) = solve_flop(*f, p, &ranges[p], &o, target);
                         worst = worst.max(e); secs += sec; peak = peak.max(mem);
                         let txt: Vec<String> = row.iter().map(|v| format!("{v:.9e}")).collect();
-                        fs::write(format!("{path}.tmp"), format!("{e} {sec}\n{}\n", txt.join(" "))).unwrap();
-                        fs::rename(format!("{path}.tmp"), &path).unwrap();
+                        write_durable(&path, &format!("{e} {sec}\n{}\n", txt.join(" ")));
+                        heartbeat(&o.dir);
                         row
                     }
                 };
@@ -224,8 +258,7 @@ fn main() {
         let bb_br = total_of(evaluate(&ctx, &next, 0, BB, &one, true)) / norm;
         log(&o.dir, &format!("round {round} done: SB EV {sb_val:.3}bb, preflop gap {:.3}bb, largest move {:.1} points", sb_br + bb_br, change * 100.0));
         log(&o.dir, &format!("  {}", summary(&t, &next)));
-        save_strategy(&format!("{}/values_{}.tmp", o.dir, round), &t, &next);
-        fs::rename(format!("{}/values_{}.tmp", o.dir, round), format!("{}/strategy_{}.txt", o.dir, round + 1)).unwrap();
+        save_strategy(&format!("{}/strategy_{}.txt", o.dir, round + 1), &t, &next);
         s = next;
     }
     log(&o.dir, "finished");

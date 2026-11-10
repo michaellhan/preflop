@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Runs run.sh at login and again whenever it dies, until it exits 0 (run finished, or gave up). Install:
+     sed "s|__DIR__|$PWD|" hu-solver.plist > ~/Library/LaunchAgents/com.preflop.hu-solver.plist
+     launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.preflop.hu-solver.plist
+     Stop and remove: launchctl bootout gui/$(id -u)/com.preflop.hu-solver; rm ~/Library/LaunchAgents/com.preflop.hu-solver.plist -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.preflop.hu-solver</string>
+  <key>ProgramArguments</key><array><string>/bin/bash</string><string>__DIR__/run.sh</string></array>
+  <key>WorkingDirectory</key><string>__DIR__</string>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict>
+  <key>ThrottleInterval</key><integer>60</integer>
+  <key>ProcessType</key><string>Standard</string>
+  <key>StandardOutPath</key><string>/tmp/hu-solver-launchd.log</string>
+  <key>StandardErrorPath</key><string>/tmp/hu-solver-launchd.log</string>
+</dict>
+</plist>
