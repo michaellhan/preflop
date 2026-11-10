@@ -8,8 +8,12 @@ Not deployed: `scripts/deploy.sh` only copies `css/`, `js/` and `index.html`.
 ```bash
 node export_start.mjs
 cargo build --release
-SOLVER_WINDOW=23-8 caffeinate -i nice -n 5 ./target/release/hu-solver --dir runs/hu --tree B
+SOLVER_WINDOW=23-8 caffeinate -i heavy ./target/release/hu-solver --dir runs/hu --tree B
 ```
+
+`heavy` (`~/.mem-guard/heavy.py`, the Mac's CPU budget) runs the solver on the efficiency cores at nice 10, with rayon
+at `RAYON_NUM_THREADS` (default 6), in one of the machine's two heavy slots, so tests and the UI keep the performance
+cores. It runs slowly while other work fills the efficiency cores; `heavy -a` lets it use every core.
 
 `SOLVER_WINDOW` limits solving to those hours. The solver also pauses while the Mac is on battery (`SOLVER_AC_ONLY=0`
 turns that off). Every finished flop is flushed to disk before it counts, a damaged flop file is solved again, and
@@ -17,6 +21,8 @@ running the same command again resumes, so a crash or power cut loses at most th
 
 `./run.sh [solver args]` (default: the current heads-up run) keeps it going. It restarts the solver after a crash,
 kills and restarts it when `runs/hu/heartbeat` goes 20 minutes without an update, and exits once the run is finished.
+It starts the solver through `heavy -x` when that is installed (`HEAVY_OPTS=-a` for every core), and doesn't count
+time spent waiting for a heavy slot or paused (by `calm` during a test run, or by the memory guard) as a stall.
 Its log is `runs/hu/supervisor.txt`. To have it come back after a reboot as well, install `hu-solver.plist` as a
 launchd agent (the commands are in the file).
 Raise `--rounds` to continue a finished run. Progress is in `runs/hu/log.txt`, and each round's strategy in
