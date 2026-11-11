@@ -23,7 +23,8 @@ running the same command again resumes, so a crash or power cut loses at most th
 kills and restarts it when `runs/hu/heartbeat` goes 20 minutes without an update, and exits once the run is finished.
 It starts the solver through `heavy -x` when that is installed (`HEAVY_OPTS=-a` for every core), and doesn't count
 time spent waiting for a heavy slot or paused (by `calm` during a test run, or by the memory guard) as a stall.
-Its log is `runs/hu/supervisor.txt`. To have it come back after a reboot as well, install `hu-solver.plist` as a
+Its log is `runs/hu/supervisor.txt`. With `ALLCORE_WINDOW=22-8` it uses every core from 22:00 to 08:00 and the
+efficiency cores (through `heavy`) otherwise, switching right after a flop finishes. To have it come back after a reboot as well, install `hu-solver.plist` as a
 launchd agent (the commands are in the file).
 Raise `--rounds` to continue a finished run. Progress is in `runs/hu/log.txt`, and each round's strategy in
 `runs/hu/strategy_N.txt`.

@@ -8,6 +8,7 @@
 <dict>
   <key>Label</key><string>com.preflop.hu-solver</string>
   <key>ProgramArguments</key><array><string>/bin/bash</string><string>__DIR__/run.sh</string></array>
+  <key>EnvironmentVariables</key><dict><key>ALLCORE_WINDOW</key><string>22-8</string></dict>
   <key>WorkingDirectory</key><string>__DIR__</string>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict>
