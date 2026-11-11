@@ -162,7 +162,12 @@ pub fn compat_table() -> Vec<Vec<f64>> {
 
 /// Equal-weight sample of flops, spread across textures. Each of the 22,100 flops is folded onto its
 /// suit-canonical form, the forms are sorted by rank and texture, and every nth flop by weight is taken.
-pub fn sample_flops(n: usize) -> Vec<[u8; 3]> {
+pub fn sample_flops(n: usize) -> Vec<[u8; 3]> { sample_flops_at(n, 0.5) }
+
+/// Same as sample_flops, but takes the flop at position (k + u) / n of each weight step instead of the middle, so
+/// different u give different flops with the same stratification. Averaging rounds with spread-out u averages over
+/// many more flops than any single round solves.
+pub fn sample_flops_at(n: usize, u: f64) -> Vec<[u8; 3]> {
     const PERMS: [[u8; 4]; 24] = [
         [0,1,2,3],[0,1,3,2],[0,2,1,3],[0,2,3,1],[0,3,1,2],[0,3,2,1],[1,0,2,3],[1,0,3,2],[1,2,0,3],[1,2,3,0],[1,3,0,2],[1,3,2,0],
         [2,0,1,3],[2,0,3,1],[2,1,0,3],[2,1,3,0],[2,3,0,1],[2,3,1,0],[3,0,1,2],[3,0,2,1],[3,1,0,2],[3,1,2,0],[3,2,0,1],[3,2,1,0]];
@@ -190,7 +195,7 @@ pub fn sample_flops(n: usize) -> Vec<[u8; 3]> {
     let (mut acc, mut k) = (0.0, 0usize);
     for (f, w) in v {
         acc += w as f64;
-        while k < n && (k as f64 + 0.5) / n as f64 * total <= acc { out.push(f); k += 1; }
+        while k < n && (k as f64 + u) / n as f64 * total <= acc { out.push(f); k += 1; }
     }
     out
 }
@@ -239,6 +244,9 @@ mod tests {
     }
 }
 
+/// Offset for the k-th shifted round: golden-ratio steps from the middle, which spread out evenly over [0, 1).
+pub fn shift(k: usize) -> f64 { (0.5 + k as f64 * 0.618_033_988_749_895).fract() }
+
 #[cfg(test)]
 mod sample_stats {
     #[test]
@@ -248,5 +256,14 @@ mod sample_stats {
             for f in super::sample_flops(n) { for x in f { c[(x / 4) as usize] += 1; } }
             println!("{n} flops, cards of each rank 2..A: {:?} (expected {:.1} each)", c, 3.0 * n as f64 / 13.0);
         }
+        let mut all = [0u32; 13];
+        let mut seen = std::collections::HashSet::new();
+        for r in 1..=6 {
+            let fl = super::sample_flops_at(50, super::shift(r));
+            let mut c = [0u32; 13];
+            for f in &fl { seen.insert(*f); for x in f { c[(x / 4) as usize] += 1; all[(x / 4) as usize] += 1; } }
+            println!("shift {r} (u {:.3}): {:?}", super::shift(r), c);
+        }
+        println!("6 shifted rounds together: {:?} (expected {:.1} each), {} distinct flops", all, 900.0 / 13.0, seen.len());
     }
 }

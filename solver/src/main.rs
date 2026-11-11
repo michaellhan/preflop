@@ -11,7 +11,7 @@ use std::{collections::HashMap, fs, io::Write, process::Command, time::{Duration
 const CHIPS: f32 = 20.0; // chips per bb
 const FLOOR: f32 = 0.001; // every hand stays in every pot at this weight so it gets a value for deviating
 
-struct Opts { dir: String, rounds: usize, flops: usize, early_flops: usize, early_rounds: usize, tree: String, target: f32, early_target: f32, alpha: f64, late_alpha: f64, iters: usize, start: String, response: f64 }
+struct Opts { dir: String, rounds: usize, flops: usize, early_flops: usize, early_rounds: usize, tree: String, target: f32, early_target: f32, alpha: f64, late_alpha: f64, iters: usize, start: String, response: f64, shift_from: usize }
 
 fn arg(a: &HashMap<String, String>, k: &str, d: &str) -> String { a.get(k).cloned().unwrap_or(d.to_string()) }
 
@@ -25,6 +25,7 @@ fn parse() -> Opts {
         target: arg(&a, "target", "0.5").parse().unwrap(), early_target: arg(&a, "early-target", "1.0").parse().unwrap(),
         alpha: arg(&a, "alpha", "0.4").parse().unwrap(), late_alpha: arg(&a, "late-alpha", "0.2").parse().unwrap(),
         iters: arg(&a, "iters", "4000").parse().unwrap(), start: arg(&a, "start", "start.txt"), response: arg(&a, "response", "1.0").parse().unwrap(),
+        shift_from: arg(&a, "shift-from", "1000000").parse().unwrap(),
     }
 }
 
@@ -197,7 +198,8 @@ fn main() {
         let early = round < o.early_rounds;
         let nf = if early { o.early_flops } else { o.flops };
         let target = if early { o.early_target } else { o.target };
-        let flops = sample_flops(nf);
+        // from --shift-from on, each round solves a different flop sample (see sample_flops_at)
+        let flops = if round >= o.shift_from { sample_flops_at(nf, shift(round - o.shift_from + 1)) } else { sample_flops(nf) };
         let ranges = pot_ranges(&s);
         let rdir = format!("{}/round_{}", o.dir, round);
         fs::create_dir_all(&rdir).unwrap();
