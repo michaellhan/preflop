@@ -19,14 +19,20 @@ const ACTIONS = {
   bb_vs_4bet: ['raise', 'call', 'fold'], sb_vs_jam: ['call', 'fold'], bb_vs_limp: ['raise', 'check'],
   sb_vs_iso: ['raise', 'call', 'fold'], bb_vs_limp3bet: ['raise', 'call', 'fold'], sb_vs_limpjam: ['call', 'fold'],
 };
-function load(i) {
+function loadPath(path) {
   const s = {};
   for (const node in ACTIONS) { s[node] = {}; for (const a of ACTIONS[node]) { s[node][a] = {}; for (const h of ALL) s[node][a][h] = 0; } }
-  for (const l of fs.readFileSync(`${here}${run}/strategy_${i}.txt`, 'utf8').trim().split('\n')) {
-    const [node, a, h, w] = l.split(' '); s[node][a][h] = +w;
+  for (const l of fs.readFileSync(path, 'utf8').trim().split('\n')) {
+    const [node, a, h, w] = l.split(' '); s[node][a][h] += +w;
+  }
+  // a hand with nothing listed (outside the range there) goes to the last action, as the solver reads it
+  for (const node in ACTIONS) for (const h of ALL) {
+    const acts = ACTIONS[node], sum = acts.reduce((t, a) => t + s[node][a][h], 0);
+    if (sum < 1e-9) s[node][acts.at(-1)][h] = 1;
   }
   return s;
 }
+const load = i => loadPath(`${here}${run}/strategy_${i}.txt`);
 // reach of each player's hands at each node
 const one = Object.fromEntries(ALL.map(h => [h, 1]));
 const mul = (...xs) => Object.fromEntries(ALL.map(h => [h, xs.reduce((p, x) => p * x[h], 1)]));
@@ -84,6 +90,25 @@ if (fs.existsSync(pcPath)) {
   const diff = ALL.map(h => [h, (1 - S.sb_open.fold[h]) - (pcOpen(h).raise + pcOpen(h).call)]).sort((a, b) => a[1] - b[1]);
   console.log('  SB hands PC plays more:', diff.slice(0, 10).filter(d => d[1] < -0.2).map(d => `${d[0]} ${pct(d[1])}`).join(', ') || 'none');
   console.log('  SB hands we play more :', diff.slice(-10).reverse().filter(d => d[1] > 0.2).map(d => `${d[0]} +${pct(d[1])}`).join(', ') || 'none');
+}
+
+// second opinion: Lizard's class-level model solving this same game (lizard_hu.py); a fitted flop model, not real solves
+const lzPath = here + 'runs/lizard_hu/strategy.txt';
+if (fs.existsSync(lzPath)) {
+  const L = loadPath(lzPath), rl = reachOf(L);
+  console.log('\nAgainst Lizard\'s model of the same game (same sizes and rake; its flop values are fitted, not solved):');
+  console.log('Node             ours'.padEnd(64) + 'Lizard'.padEnd(40) + 'hands differ by (our reach-weighted)');
+  for (const node in ACTIONS) {
+    const share = (X, r) => { let t = 0; const by = {}; for (const h of ALL) { const w = n(h) * r[h]; t += w; for (const a of ACTIONS[node]) by[a] = (by[a] || 0) + w * X[node][a][h]; } return ACTIONS[node].map(a => `${a} ${pct(by[a] / t)}`).join('  '); };
+    let t = 0, d = 0;
+    for (const h of ALL) { const w = n(h) * reach[node][h]; t += w; d += w * ACTIONS[node].reduce((x, a) => x + Math.abs(S[node][a][h] - L[node][a][h]), 0) / 2; }
+    console.log(node.padEnd(16), share(S, reach[node]).padEnd(46), share(L, rl[node]).padEnd(40), `${pct(d / t)} points`);
+  }
+  for (const node of ['sb_open', 'bb_vs_open']) {
+    const diff = ALL.map(h => [h, L[node].fold[h] - S[node].fold[h]]).sort((a, b) => a[1] - b[1]);
+    console.log(`  ${node}, hands Lizard folds more:`, diff.slice(-8).reverse().filter(x => x[1] > 0.2).map(x => `${x[0]} +${pct(x[1])}`).join(', ') || 'none');
+    console.log(`  ${node}, hands we fold more   :`, diff.slice(0, 8).filter(x => x[1] < -0.2).map(x => `${x[0]} ${pct(-x[1])}`).join(', ') || 'none');
+  }
 }
 
 // blunder checks: a hand folded while clearly worse hands of the same kind continue

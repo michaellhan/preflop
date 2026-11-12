@@ -35,3 +35,13 @@ flip between rounds because they are close to indifferent. Average only rounds r
 
 Limits: 169 hand classes preflop, one bet size per street, raises on the flop only, and postflop values held fixed
 within a round. The output is the equilibrium of that simplified game, not of real poker.
+
+## Cross-checks from the other poker projects (read only)
+
+- `lizard_hu.py` solves this exact game (sizes, rake, limps) in Lizard's class-level preflop model, whose flop values
+  are fitted to published 6-max solves rather than solved. `report.mjs` compares against it when
+  `runs/lizard_hu/strategy.txt` exists. Run with `~/Desktop/projects/lizard/.venv/bin/python lizard_hu.py` (1 second).
+- `flop_sample_error.py` measures how far a 50-flop sample is from all 1,755 flops, on gtosolver's heads-up
+  single-raised library (`gtosolver/.work/hu-lib`, every flop solved, 3bb open). On 2026-11-12: the fixed sample was off
+  by 0.22bb per hand class on average (worst 1.1bb, in a 6bb pot), one shifted sample by 0.25, and the 6 shifted
+  samples together by 0.08 (worst 0.41). That error flips hands that are close to indifferent, such as T7o over T8o.
