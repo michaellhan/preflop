@@ -16,6 +16,9 @@ STALL_MIN=${STALL_MIN:-20}
 HEAVY=$HOME/.local/bin/heavy
 QUICK=0  # restarts in a row where the solver died within 2 minutes; 5 means something is broken, so stop
 ALLCORE_THREADS=${ALLCORE_THREADS:-10}
+# heavy slot 2 is reserved for this solve (user's choice, 2026-11-12), so it never queues behind other projects'
+# jobs in slots 0-1 and loses nothing at a window switch; HEAVY_ONLY_SLOT= (empty) shares slots 0-1 instead.
+export HEAVY_ONLY_SLOT=${HEAVY_ONLY_SLOT-2}
 in_window() {  # true inside ALLCORE_WINDOW ("22-8" = 22:00 to 08:00)
   [ -n "$ALLCORE_WINDOW" ] || return 1
   local a=${ALLCORE_WINDOW%-*} b=${ALLCORE_WINDOW#*-} h=$((10#$(date +%H)))
