@@ -10,7 +10,7 @@
 # the Mac is idle; at each window edge it waits for a flop to finish (up to 5 minutes), then restarts in the new mode.
 # Usage: ./run.sh [solver args...]   (default: the current heads-up run)
 cd "$(dirname "$0")" || exit 1
-ARGS=("$@"); [ ${#ARGS[@]} -eq 0 ] && ARGS=(--dir runs/hu --tree B --rounds 17 --late-alpha 0.6 --shift-from 11)
+ARGS=("$@"); [ ${#ARGS[@]} -eq 0 ] && ARGS=(--dir runs/hu --tree B --rounds 18 --late-alpha 0.6 --shift-from 11 --correct-from 12)
 DIR=runs/hu; for ((i = 0; i < ${#ARGS[@]}; i++)); do [ "${ARGS[i]}" = --dir ] && DIR=${ARGS[i+1]}; done
 STALL_MIN=${STALL_MIN:-20}
 HEAVY=$HOME/.local/bin/heavy

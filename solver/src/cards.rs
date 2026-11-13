@@ -164,24 +164,10 @@ pub fn compat_table() -> Vec<Vec<f64>> {
 /// suit-canonical form, the forms are sorted by rank and texture, and every nth flop by weight is taken.
 pub fn sample_flops(n: usize) -> Vec<[u8; 3]> { sample_flops_at(n, 0.5) }
 
-/// Same as sample_flops, but takes the flop at position (k + u) / n of each weight step instead of the middle, so
-/// different u give different flops with the same stratification. Averaging rounds with spread-out u averages over
-/// many more flops than any single round solves.
-pub fn sample_flops_at(n: usize, u: f64) -> Vec<[u8; 3]> {
-    const PERMS: [[u8; 4]; 24] = [
-        [0,1,2,3],[0,1,3,2],[0,2,1,3],[0,2,3,1],[0,3,1,2],[0,3,2,1],[1,0,2,3],[1,0,3,2],[1,2,0,3],[1,2,3,0],[1,3,0,2],[1,3,2,0],
-        [2,0,1,3],[2,0,3,1],[2,1,0,3],[2,1,3,0],[2,3,0,1],[2,3,1,0],[3,0,1,2],[3,0,2,1],[3,1,0,2],[3,1,2,0],[3,2,0,1],[3,2,1,0]];
+/// Every suit-canonical flop with how many of the 22,100 it stands for, sorted by rank and texture.
+pub fn canonical_flops() -> Vec<([u8; 3], u32)> {
     let mut m = std::collections::BTreeMap::<[u8; 3], u32>::new();
-    for a in 0..52u8 { for b in (a + 1)..52u8 { for c in (b + 1)..52u8 {
-        let mut best = [255u8; 3];
-        for p in PERMS {
-            let f = |x: u8| x / 4 * 4 + p[(x % 4) as usize];
-            let mut t = [f(a), f(b), f(c)];
-            t.sort_unstable();
-            if t < best { best = t; }
-        }
-        *m.entry(best).or_insert(0) += 1;
-    } } }
+    for a in 0..52u8 { for b in (a + 1)..52u8 { for c in (b + 1)..52u8 { *m.entry(canonical([a, b, c])).or_insert(0) += 1; } } }
     let mut v: Vec<([u8; 3], u32)> = m.into_iter().collect();
     let key = |f: &[u8; 3]| {
         let (a, b, c) = (f[2] / 4, f[1] / 4, f[0] / 4);
@@ -190,6 +176,29 @@ pub fn sample_flops_at(n: usize, u: f64) -> Vec<[u8; 3]> {
         (a, b, c, distinct)
     };
     v.sort_by_key(|x| key(&x.0));
+    v
+}
+
+/// A flop's suit-canonical form: the smallest sorted card triple over the 24 ways of renaming suits.
+pub fn canonical(flop: [u8; 3]) -> [u8; 3] {
+    const PERMS: [[u8; 4]; 24] = [
+        [0,1,2,3],[0,1,3,2],[0,2,1,3],[0,2,3,1],[0,3,1,2],[0,3,2,1],[1,0,2,3],[1,0,3,2],[1,2,0,3],[1,2,3,0],[1,3,0,2],[1,3,2,0],
+        [2,0,1,3],[2,0,3,1],[2,1,0,3],[2,1,3,0],[2,3,0,1],[2,3,1,0],[3,0,1,2],[3,0,2,1],[3,1,0,2],[3,1,2,0],[3,2,0,1],[3,2,1,0]];
+    let mut best = [255u8; 3];
+    for p in PERMS {
+        let f = |x: u8| x / 4 * 4 + p[(x % 4) as usize];
+        let mut t = [f(flop[0]), f(flop[1]), f(flop[2])];
+        t.sort_unstable();
+        if t < best { best = t; }
+    }
+    best
+}
+
+/// Same as sample_flops, but takes the flop at position (k + u) / n of each weight step instead of the middle, so
+/// different u give different flops with the same stratification. Averaging rounds with spread-out u averages over
+/// many more flops than any single round solves.
+pub fn sample_flops_at(n: usize, u: f64) -> Vec<[u8; 3]> {
+    let v = canonical_flops();
     let total: f64 = v.iter().map(|x| x.1 as f64).sum();
     let mut out = Vec::with_capacity(n);
     let (mut acc, mut k) = (0.0, 0usize);

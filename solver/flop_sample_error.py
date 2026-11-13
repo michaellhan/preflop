@@ -8,18 +8,26 @@ for) that is the exact flop average for those ranges; averaged over a 50-flop sa
 The gap per class is the sampling error. The library's ranges and sizes are not ours, so this measures the size of
 the error, not our exact values.
 
-Usage: ~/Desktop/projects/lizard/.venv/bin/python flop_sample_error.py
+It then checks the correction in src/correct.rs (a control variate on each hand's flop equity) against the same
+truth: it writes the library's ranges and per-combo EVs to a temp folder and runs target/release/sample_check on them.
+
+Usage: ~/Desktop/projects/lizard/.venv/bin/python flop_sample_error.py   (after cargo build --release)
 """
 import json
 import math
 import os
+import struct
+import subprocess
 import sys
+import tempfile
 from collections import defaultdict
 
 import numpy as np
 
 LIZARD = os.path.expanduser("~/Desktop/projects/lizard")
 LIB = os.path.expanduser("~/Desktop/projects/gtosolver/.work/hu-lib")
+RANGES = os.path.expanduser("~/Desktop/projects/gtosolver/gto/static/flop_library/{}/ranges.json")
+HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path[:0] = [os.path.join(LIZARD, "solver")]
 from gto import flop_library as FL  # noqa: E402
 from gto.cards import ALL_COMBOS  # noqa: E402
@@ -67,12 +75,15 @@ def main():
     pot = next(s for s in index["spots"] if s["id"] == spot)["pot"]
     weights = FL.all_flops()                     # {canonical flop (cards high to low): count}
     values = {}                                  # flop -> {class: BB's EV in bb}
+    combo_ev = {}                                # flop -> BB's EV per combo (NaN outside its range)
     for f in weights:
         name = FL.cards_str(f)
         d = FL.decode(open(os.path.join(LIB, spot, name + ".bin"), "rb").read())
         root = next(nd for nd in d["nodes"] if not nd["path"])
         idx = np.nonzero(d["masks"][root["player"]])[0]
         ev = (root["strat"] * root["evs"]).sum(axis=0)
+        combo_ev[f] = np.full(len(ALL_COMBOS), np.nan, dtype="<f4")
+        combo_ev[f][idx] = ev
         by = defaultdict(list)
         for i, e in zip(idx, ev):
             a, b = ALL_COMBOS[i]
@@ -113,6 +124,25 @@ def main():
     print("\nflagged pairs, error of the fixed sample (bb): ", end="")
     print(", ".join(f"{c} {got[c] - exact[c]:+.3f}" for c in ("J4s", "J3s", "T8o", "T7o", "87o", "86o", "T5s", "T3s")
                     if c in got))
+
+    check_correction(spot, weights, combo_ev)
+
+
+def check_correction(spot, weights, combo_ev):
+    """Runs sample_check (src/bin/sample_check.rs) on the library: the solver's own correction code, judged by the truth."""
+    ours = [(a, b) for a in range(52) for b in range(a + 1, 52)]
+    assert [tuple(sorted(c)) for c in ALL_COMBOS] == ours, "combo orders differ"
+    w = json.load(open(RANGES.format(spot)))["w"]              # [out of position, in position], x 10,000
+    with tempfile.TemporaryDirectory() as tmp:
+        with open(os.path.join(tmp, "ranges.txt"), "w") as f:
+            for r in w:
+                f.write(" ".join(str(x / 10000) for x in r) + "\n")
+        with open(os.path.join(tmp, "values.bin"), "wb") as f:
+            f.write(struct.pack("<I", len(weights)))
+            for fl, n in weights.items():
+                f.write(bytes(fl) + struct.pack("<I", n) + combo_ev[fl].tobytes())
+        print(flush=True)
+        subprocess.run([os.path.join(HERE, "target/release/sample_check"), tmp], check=True)
 
 
 if __name__ == "__main__":

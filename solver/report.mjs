@@ -6,7 +6,7 @@ import fs from 'node:fs'; import vm from 'node:vm';
 
 const argv = process.argv.slice(2), ai = argv.indexOf('--avg');
 const avgN = ai >= 0 ? +argv[ai + 1] : 1;
-const run = argv.find((x, i) => !x.startsWith('--') && i !== ai + 1) || 'runs/hu';
+const run = argv.find((x, i) => !x.startsWith('--') && (ai < 0 || i !== ai + 1)) || 'runs/hu';
 const here = new URL('.', import.meta.url).pathname;
 const ctx = vm.createContext({ console });
 for (const f of ['hands.js', 'ranges.js']) vm.runInContext(fs.readFileSync(here + '../js/' + f, 'utf8'), ctx, { filename: f });

@@ -26,6 +26,11 @@ time spent waiting for a heavy slot or paused (by `calm` during a test run, or b
 Its log is `runs/hu/supervisor.txt`. With `ALLCORE_WINDOW=22-8` it uses every core from 22:00 to 08:00 and the
 efficiency cores (through `heavy`) otherwise, switching right after a flop finishes. To have it come back after a reboot as well, install `hu-solver.plist` as a
 launchd agent (the commands are in the file).
+`--shift-from R` gives each round from R on its own flop sample (see `sample_flops_at`). `--correct-from R` corrects
+each round's values from R on for which flops the sample drew (`src/correct.rs`): a hand's postflop value moves with
+its equity on the flop, equity is computed exactly on all 1,755 flops (about a minute a pot, saved as
+`round_N/eq_<pot>.txt`), and a fit of value on eq, eq² and eq³ over the sampled flops removes the part of the sample
+average that comes from the sample's equity being off. The log shows each pot's mean change.
 Raise `--rounds` to continue a finished run. Progress is in `runs/hu/log.txt`, and each round's strategy in
 `runs/hu/strategy_N.txt`.
 
@@ -45,3 +50,7 @@ within a round. The output is the equilibrium of that simplified game, not of re
   single-raised library (`gtosolver/.work/hu-lib`, every flop solved, 3bb open). On 2026-11-12: the fixed sample was off
   by 0.22bb per hand class on average (worst 1.1bb, in a 6bb pot), one shifted sample by 0.25, and the 6 shifted
   samples together by 0.08 (worst 0.41). That error flips hands that are close to indifferent, such as T7o over T8o.
+  It then runs `target/release/sample_check` on the library, which applies the solver's own correction code and
+  compares it with the truth (2026-11-13, mass-weighted as in the solver): one 50-flop sample's error falls from 0.18bb
+  per class to 0.06 (worst 1.35 to 0.27), on 20 shifted samples it was not tuned on as well, and the 6 shifted samples
+  together from 0.053 to 0.014 (worst 0.07). The fit uses the sampled flops only; the library is only the referee.
