@@ -68,7 +68,14 @@
 
   function renderSettings() {
     $$('#table-select button').forEach(b => b.classList.toggle('active', b.dataset.table === settings.table));
-    $$('#type-select input').forEach(i => { i.checked = !!settings.types[i.value]; });
+    const have = new Set(S.getSpots(settings.table).map(s => s.type));
+    $$('#type-select label').forEach(l => {
+      const i = $('input', l), name = $('span', l);
+      if (!name.dataset.ring) name.dataset.ring = name.textContent;
+      name.textContent = (settings.table === 'hu' && HU_TYPE_NAMES[i.value]) || name.dataset.ring;
+      l.classList.toggle('hidden', !have.has(i.value));
+      i.checked = !!settings.types[i.value];
+    });
     const wrap = $('#pos-select');
     wrap.innerHTML = '';
     const all = S.TABLES[settings.table].positions;
@@ -82,7 +89,7 @@
       const b = document.createElement('button');
       b.className = 'chip' + (sel.includes(p) && sel.length !== all.length ? ' active' : '');
       b.textContent = p;
-      b.title = S.POSITION_NAMES[p];
+      b.title = S.POSITION_NAMES[p] + (settings.table === 'hu' && p === 'SB' ? ' (button)' : '');
       b.addEventListener('click', () => {
         let cur = settings.positions[settings.table];
         if (!cur || cur.length === all.length) cur = [p];
@@ -100,6 +107,8 @@
     $('#spot-count').textContent = candidateSpots().length + ' spots in rotation';
     if (settingsSum) settingsSum.textContent = S.TABLES[settings.table].name + ' · ' + candidateSpots().length + ' spots';
   }
+  // Heads-up has one spot per scenario, so each is named by who acts in it.
+  const HU_TYPE_NAMES = { rfi: 'SB open', vsOpen: 'BB vs SB raise', vs3bet: 'SB vs BB 3-bet', vsLimp: 'Limped pots' };
   function persistSettings() { saveJSON(SETTINGS_KEY, settings); renderSettings(); newHand(); window.EV.precalibrate(candidateSpots()); }
 
   /* Phones: the settings and stats panels sit under the table, so each gets a heading button that
@@ -519,7 +528,14 @@
   function chartSpots() { return S.getSpots(charts.table).filter(s => s.type === charts.type); }
   function renderChartControls() {
     $$('#chart-table button').forEach(b => b.classList.toggle('active', b.dataset.table === charts.table));
-    $$('#chart-type button').forEach(b => b.classList.toggle('active', b.dataset.type === charts.type));
+    const hu = charts.table === 'hu';
+    $('#chart-hu-wrap').classList.toggle('hidden', !hu);
+    ['#chart-type-wrap', '#chart-hero-wrap'].forEach(id => $(id).classList.toggle('hidden', hu));
+    if (hu) return renderHUTree();
+    // a scenario this table has no spots for (e.g. a squeeze needs three players) falls back to the opens
+    const have = new Set(S.getSpots(charts.table).map(s => s.type));
+    if (!have.has(charts.type)) { charts.type = 'rfi'; charts.villain = null; }
+    $$('#chart-type button').forEach(b => { b.classList.toggle('active', b.dataset.type === charts.type); b.classList.toggle('hidden', !have.has(b.dataset.type)); });
     const spots = chartSpots();
     const heroes = Array.from(new Set(spots.map(s => s.hero)));
     const hw = $('#chart-hero');
@@ -551,6 +567,45 @@
       }
     } else charts.villain = null;
     $('#chart-villain-label').textContent = charts.type === 'vs3bet' ? '3-bettor' : charts.type === 'vsLimp' ? 'Opponent' : 'Opener';
+  }
+  /* Heads-up has only five spots, so instead of scenario / position / opponent pickers they are shown as the
+     hand's own decision tree: the SB's open, then each branch (raise or limp) and the reply to it. */
+  const HU_TREE = [
+    { id: 'hu:rfi:SB', depth: 0, line: () => 'Opens, first to act' },
+    { id: 'hu:vsOpen:BB:SB', depth: 1, line: s => 'vs SB raise to ' + s.seats.SB.bet + 'bb' },
+    { id: 'hu:vs3bet:SB:BB', depth: 2, line: s => 'vs BB 3-bet to ' + s.seats.BB.bet + 'bb' },
+    { id: 'hu:vsLimp:BB:SB', depth: 1, line: () => 'vs SB limp' },
+    { id: 'hu:vsLimp:SB:BB', depth: 2, line: s => 'vs BB raise to ' + s.seats.BB.bet + 'bb' }
+  ];
+  function renderHUTree() {
+    const spots = S.getSpots('hu');
+    const cur = spots.find(s => s.type === charts.type && s.hero === charts.hero) || spots[0];
+    charts.type = cur.type; charts.hero = cur.hero; charts.villain = cur.villain;
+    const wrap = $('#chart-hu-tree');
+    wrap.innerHTML = '';
+    for (const n of HU_TREE) {
+      const s = spots.find(x => x.id === n.id);
+      const b = document.createElement('button');
+      b.className = 'hu-node' + (s === cur ? ' active' : '');
+      b.style.setProperty('--depth', n.depth);
+      const opts = s.actions.map(a => a.label.replace(/ ~?[\d.]+bb$/, '').toLowerCase()).join(' · ');
+      b.innerHTML = '<span class="hu-who ' + s.hero.toLowerCase() + '">' + s.hero + '</span><span class="hu-text"><span class="hu-line">' + n.line(s) + '</span><span class="hu-opts">' + opts + '</span></span>';
+      b.title = s.description;
+      b.addEventListener('click', () => { charts.type = s.type; charts.hero = s.hero; charts.villain = s.villain; renderCharts(); });
+      wrap.appendChild(b);
+    }
+    // connector lines: each child joins the nearest node above it one level up
+    const nodes = Array.from(wrap.children);
+    HU_TREE.forEach((n, i) => {
+      if (!n.depth) return;
+      let j = i - 1;
+      while (HU_TREE[j].depth >= n.depth) j--;
+      const par = nodes[j], el = nodes[i];
+      el.classList.add('child');
+      el.style.setProperty('--up', (el.offsetTop - par.offsetTop - par.offsetHeight) + 'px');
+    });
+    $('#chart-villain-wrap').classList.add('hidden');
+    $('#chart-mid-wrap').classList.add('hidden');
   }
   /* Cold 4-bet and squeeze charts have two players ahead of hero: pick the opener, then the 3-bettor or caller.
      charts.villain holds both as "OPENER-MID" (e.g. UTG-HJ). */

@@ -39,12 +39,12 @@
         <div class="group">
           <h3>Scenarios</h3>
           <div id="type-select">
-            <label class="check"><input type="checkbox" value="rfi"> Open (RFI)</label>
-            <label class="check"><input type="checkbox" value="vsOpen"> Facing an open</label>
-            <label class="check"><input type="checkbox" value="vs3bet"> Facing a 3-bet</label>
-            <label class="check"><input type="checkbox" value="cold4"> Cold 4-bet</label>
-            <label class="check"><input type="checkbox" value="squeeze"> Squeeze</label>
-            <label class="check"><input type="checkbox" value="vsLimp"> Limped pots</label>
+            <label class="check"><input type="checkbox" value="rfi"> <span>Open (RFI)</span></label>
+            <label class="check"><input type="checkbox" value="vsOpen"> <span>Facing an open</span></label>
+            <label class="check"><input type="checkbox" value="vs3bet"> <span>Facing a 3-bet</span></label>
+            <label class="check"><input type="checkbox" value="cold4"> <span>Cold 4-bet</span></label>
+            <label class="check"><input type="checkbox" value="squeeze"> <span>Squeeze</span></label>
+            <label class="check"><input type="checkbox" value="vsLimp"> <span>Limped pots</span></label>
           </div>
         </div>
         <div class="group">
@@ -121,7 +121,12 @@
             <button data-table="9max" title="9-max">9</button>
           </div>
         </div>
-        <div class="group">
+        <div class="group hidden" id="chart-hu-wrap">
+          <h3>Spot</h3>
+          <div class="hu-tree" id="chart-hu-tree"></div>
+          <div class="small-note">The SB is the button: first to act preflop, last after the flop.</div>
+        </div>
+        <div class="group" id="chart-type-wrap">
           <h3>Scenario</h3>
           <div class="chips" id="chart-type">
             <button class="chip" data-type="rfi">Open (RFI)</button>
@@ -132,7 +137,7 @@
             <button class="chip" data-type="vsLimp">Limped pots</button>
           </div>
         </div>
-        <div class="group">
+        <div class="group" id="chart-hero-wrap">
           <h3>Your position</h3>
           <div class="chips" id="chart-hero"></div>
         </div>
