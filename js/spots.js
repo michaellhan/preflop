@@ -348,12 +348,12 @@
     for (const h of H.ALL_HANDS) { raisePrior[h] = openStrat[h].raise; limpPrior[h] = openStrat[h].limp; }
     spots.push({
       id: 'hu:rfi:SB', table, type: 'rfi', hero: 'SB', villain: null,
-      title: 'SB open (heads-up)',
+      title: 'SB open',
       description: 'Heads-up: you are the small blind and the button, first to act preflop but in position after the flop.',
-      question: 'Raise to 2.5bb, call, or fold?',
+      question: 'Raise to 2.5bb, limp, or fold?',
       actions: [
         { key: 'raise', label: 'Raise 2.5bb', color: COLORS.raise },
-        { key: 'limp', label: 'Call', color: COLORS.limp },
+        { key: 'limp', label: 'Limp', color: COLORS.limp },
         { key: 'fold', label: 'Fold', color: COLORS.fold }
       ],
       strategy: openStrat, source: 'HU SB_OPEN',
@@ -361,7 +361,7 @@
     });
     spots.push({
       id: 'hu:vsOpen:BB:SB', table, type: 'vsOpen', hero: 'BB', villain: 'SB',
-      title: 'BB vs SB open (heads-up)',
+      title: 'BB vs SB raise',
       description: 'Heads-up: the small blind (button) raises to 2.5bb. You are the big blind, out of position for the rest of the hand.',
       question: '3-bet to 10bb, call, or fold?',
       actions: [
@@ -374,7 +374,7 @@
     });
     spots.push({
       id: 'hu:vs3bet:SB:BB', table, type: 'vs3bet', hero: 'SB', villain: 'BB',
-      title: 'SB vs BB 3-bet (heads-up)',
+      title: 'SB vs BB 3-bet',
       description: 'Heads-up: you raise to 2.5bb from the small blind (button) and the big blind 3-bets to 10bb.',
       question: '4-bet to ~22bb, call, or fold?',
       actions: [
@@ -388,7 +388,7 @@
     });
     spots.push({
       id: 'hu:vsLimp:BB:SB', table, type: 'vsLimp', hero: 'BB', villain: 'SB',
-      title: 'BB vs SB limp (heads-up)',
+      title: 'BB vs SB limp',
       description: 'Heads-up: the small blind (button) limps. You are the big blind with the option.',
       question: 'Raise to 4bb or check?',
       actions: [
@@ -400,7 +400,7 @@
     });
     spots.push({
       id: 'hu:vsLimp:SB:BB', table, type: 'vsLimp', hero: 'SB', villain: 'BB',
-      title: 'SB vs BB raise after limp (heads-up)',
+      title: 'SB vs BB raise after limp',
       description: 'Heads-up: you limp from the small blind (button) and the big blind raises to 4bb.',
       question: '3-bet to 12bb, call, or fold?',
       actions: [
