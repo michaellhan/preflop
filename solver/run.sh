@@ -14,7 +14,7 @@ ARGS=("$@"); [ ${#ARGS[@]} -eq 0 ] && ARGS=(--dir runs/hu --tree B --rounds 18 -
 DIR=runs/hu; for ((i = 0; i < ${#ARGS[@]}; i++)); do [ "${ARGS[i]}" = --dir ] && DIR=${ARGS[i+1]}; done
 STALL_MIN=${STALL_MIN:-20}
 HEAVY=$HOME/.local/bin/heavy
-QUICK=0  # restarts in a row where the solver died within 2 minutes; 5 means something is broken, so stop
+QUICK=0  # restarts in a row where the solver crashed within 2 minutes; 5 means something is broken: wait 30 min
 ALLCORE_THREADS=${ALLCORE_THREADS:-10}
 # heavy slot 2 is reserved for this solve (user's choice, 2026-11-12), so it never queues behind other projects'
 # jobs in slots 0-1 and loses nothing at a window switch; HEAVY_ONLY_SLOT= (empty) shares slots 0-1 instead.
@@ -59,8 +59,13 @@ while true; do
     fi
     # Not stale while heavy is still waiting for a slot, or while the solver is paused (SIGSTOP by `calm` during
     # a test run, or by the memory guard): a paused solver can't touch its heartbeat.
-    if ! ps -o comm= -p $PID | grep -q hu-solver; then touch "$DIR/heartbeat"; START=$(date +%s); continue; fi
-    case $(ps -o state= -p $PID) in T*) touch "$DIR/heartbeat"; continue ;; esac
+    # An empty ps answer (it can fail when memory is critical, or the solver just ended) decides nothing: before
+    # 2026-11-14 it counted as "still waiting for a slot" and reset START, so the memory guard's kill a minute
+    # later looked like a death within 2 minutes, and five such kills made this script give up (Nov 13 and 14).
+    comm=$(ps -o comm= -p $PID 2>/dev/null); state=$(ps -o state= -p $PID 2>/dev/null)
+    [ -z "$comm" ] && continue
+    case $comm in *hu-solver*) ;; *) touch "$DIR/heartbeat"; START=$(date +%s); continue ;; esac
+    case $state in T*) touch "$DIR/heartbeat"; continue ;; esac
     age=$(( $(date +%s) - $(stat -f %m "$DIR/heartbeat" 2>/dev/null || echo 0) ))
     if [ $age -gt $((STALL_MIN * 60)) ]; then
       say "no heartbeat for $((age / 60)) minutes; killing $PID"
@@ -70,8 +75,21 @@ while true; do
   wait $PID; code=$?
   [ $SWITCH -eq 1 ] && continue
   if [ $code -eq 0 ] && tail -1 "$DIR/log.txt" | grep -q '^finished$'; then say "run finished"; exit 0; fi
-  if [ $(( $(date +%s) - START )) -lt 120 ]; then QUICK=$((QUICK + 1)); else QUICK=0; fi
-  if [ $QUICK -ge 5 ]; then say "hu-solver died within 2 minutes 5 times in a row; giving up (see $DIR/stdout.txt)"; exit 0; fi
-  say "hu-solver exited with code $code; restarting in 30s"
+  ran=$(( $(date +%s) - START ))
+  # A kill by the memory guard (~/.mem-guard, logged in actions.jsonl) is not a crash: restart without counting
+  # it. heavy then holds the start until memory has stayed clear.
+  if tail -n 300 "$HOME/.mem-guard/actions.jsonl" 2>/dev/null | grep -qE "\"do\": \"kill\", \"pid\": $PID[,}]"; then
+    QUICK=0
+    say "hu-solver was killed by the memory guard after $((ran / 60)) min (code $code); restarting in 30s"
+    sleep 30; continue
+  fi
+  if [ $ran -lt 120 ]; then QUICK=$((QUICK + 1)); else QUICK=0; fi
+  # Five crashes within 2 minutes in a row means something is broken. Until 2026-11-14 this script then exited
+  # for good; now it waits 30 minutes and tries again, so a passing problem can't end the run.
+  if [ $QUICK -ge 5 ]; then
+    say "hu-solver died within 2 minutes 5 times in a row (see $DIR/stdout.txt); trying again in 30 minutes"
+    QUICK=0; sleep 1800; continue
+  fi
+  say "hu-solver exited with code $code after $((ran / 60)) min; restarting in 30s"
   sleep 30
 done
