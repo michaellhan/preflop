@@ -155,13 +155,10 @@ label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
 #chart-table-svg { width: 100%; max-width: 420px; height: auto; margin-top: 10px; display: block; }
 #chart-source { font-size: 11px; color: var(--muted); margin-top: 10px; word-break: break-word; }
 
-/* ---------- about ---------- */
-.about { max-width: 900px; margin: 0 auto; }
-.about h2 { margin-top: 26px; }
-.about table { border-collapse: collapse; width: 100%; font-size: 13px; margin: 10px 0; }
-.about th, .about td { border: 1px solid var(--border); padding: 5px 8px; text-align: left; }
-.about th { background: var(--panel-2); }
-.about kbd { background: var(--panel-2); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; font-family: inherit; font-size: 12px; }
+/* ---------- footer ---------- */
+.site-foot { max-width: 1400px; margin: 0 auto; padding: 4px 18px 18px; color: var(--muted); font-size: 11px; opacity: .7; }
+.site-foot a { color: inherit; }
+.site-foot kbd { border: 1px solid var(--border); border-radius: 3px; padding: 0 4px; font-family: inherit; font-size: 10px; }
 .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 
 @media (max-width: 1100px) {
@@ -216,7 +213,7 @@ label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
 .summary-row.combined { grid-template-columns: 64px 1fr 46px; }
 .summary-row.combined .pct { text-align: right; }
 
-/* ---------- mobile: header, charts, about ---------- */
+/* ---------- mobile: header, charts ---------- */
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 /* Grid labels scale with the grid itself, so they stay as large as the cells allow on any width. */
 .range-grid { container-type: inline-size; }
@@ -227,9 +224,6 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 .chart-info-inline { margin-top: 10px; padding: 10px 12px; }
 .chart-info-inline #chart-why { margin-top: 8px; }
 .chart-head h2, .chart-head p, #chart-source { overflow-wrap: anywhere; }
-.about { overflow-wrap: break-word; }
-.about a { overflow-wrap: anywhere; }
-.about pre { overflow-x: auto; max-width: 100%; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 12px; }
 .two-col > div { min-width: 0; }
 
 @media (max-width: 760px) {
@@ -261,12 +255,6 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   .summary-row { grid-template-columns: 14px minmax(0, 1fr) auto auto; }
   .summary-row .lbl { overflow-wrap: anywhere; }
 
-  /* About: wide tables scroll inside their own box. */
-  .about h1 { font-size: 24px; margin-top: 4px; }
-  .about h2 { font-size: 18px; margin-top: 22px; }
-  .about table { display: block; overflow-x: auto; width: auto; max-width: 100%; }
-  .about table > tbody { display: table; width: 100%; }
-  .about th, .about td { padding: 5px 6px; }
 }
 @media (max-width: 400px) {
   .brand .brand-name { display: none; }

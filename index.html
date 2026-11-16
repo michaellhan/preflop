@@ -14,7 +14,6 @@
   <nav class="tabs">
     <a class="tab active" href="./" data-view="trainer">Trainer</a>
     <a class="tab" href="ranges/" data-view="ranges"><span class="tab-long">Range </span>Charts</a>
-    <a class="tab" href="about/" data-view="about">About<span class="tab-long"> the Data</span></a>
   </nav>
 </header>
 
@@ -167,84 +166,8 @@
     </div>
   </section>
 
-  <!-- ================= ABOUT ================= -->
-  <section id="view-about" class="view">
-    <div class="about">
-      <h1>About the data</h1>
-      <p>Preflop Trainer trains you against a fixed <b>100bb, no-ante cash game</b> equilibrium model. Every spot is a single decision: everyone before you has folded or made exactly one action, and you choose between fold, call/check and raise (on an open, calling the big blind is a limp). That includes multi-way spots where two players acted before you: a <b>cold 4-bet</b> (one player opens, another 3-bets) and a <b>squeeze</b> (one player opens, another calls). The strategy for each of the 169 starting hands is stored as action frequencies (a hand can be a pure action or a mix such as "3-bet 40% / call 60%").</p>
-
-      <h2>Game model</h2>
-      <table>
-        <tr><th>Parameter</th><th>Value</th></tr>
-        <tr><td>Stack depth</td><td>100 big blinds effective, no ante</td></tr>
-        <tr><td>Open-raise size</td><td>2.5bb from every position, the small blind included. First in, GTO raises or folds from UTG to the button; the SB also limps part of its range. A Call button (a limp: just calling the big blind) is offered on every open so you can see what it costs (see "Limping" below)</td></tr>
-        <tr><td>3-bet size</td><td>7.5bb in position (3x), 11.5bb from the SB, 12.5bb from the BB (7.5bb vs a SB open, since the BB is then in position)</td></tr>
-        <tr><td>4-bet size</td><td>23bb over a 7.5bb 3-bet, 25bb over a blind 3-bet. Cold 4-bet: 17bb in position, 23bb from the SB, 21bb from the BB (25bb over a SB 3-bet)</td></tr>
-        <tr><td>Squeeze size</td><td>9.5bb in position, 16bb from the SB, 18bb from the BB (17bb over a button open and SB call)</td></tr>
-        <tr><td>Limped pot sizes</td><td>BB raises a SB limp to 3bb; the SB re-raises to 15bb</td></tr>
-        <tr><td>Rake</td><td>5% capped at 0.5bb (as in the reference solution), taken only from pots that see a flop (no flop, no drop). Rake and the players still to act behind are why cold calls are rare outside the big blind: the HJ and CO flat under 2% of hands, the button and SB about 2.5-4.5%</td></tr>
-        <tr><td>Positions</td><td>3-max: BTN, SB, BB. 4-max: CO, BTN, SB, BB. 5-max: HJ, CO, BTN, SB, BB. 6-max: UTG, HJ, CO, BTN, SB, BB. 7-max: UTG, LJ, HJ, CO, BTN, SB, BB. 8-max: UTG, UTG+1, LJ, HJ, CO, BTN, SB, BB. 9-max: UTG, UTG+1, UTG+2, LJ, HJ, CO, BTN, SB, BB. Heads-up: SB (also the button, in position postflop) and BB</td></tr>
-        <tr><td>Heads-up sizes</td><td>SB opens 2.5bb or limps; BB 3-bets to 10bb, 4-bet ~22bb; BB raises a limp to 4bb, SB re-raises to 12bb</td></tr>
-      </table>
-
-      <h2>How accurate is it?</h2>
-      <p>The 6-max and 9-max ranges come from the 100bb solver sources below, rounded to 5% steps, but they are close approximations rather than exact copies; the heads-up ranges come from our own solve, described below. No chart here is proven exact, and the sources themselves disagree. In October 2026 every 6-max spot was measured hand by hand against the free 100bb 6-max cash solution published by <a href="https://pokerdata.io" target="_blank" rel="noopener">PokerData</a> (5% rake capped at 0.5bb, 2.5bb opens, 7.5bb in-position 3-bets), and any hand off by more than 10% was moved to that solution, so a hand can still sit up to 10 points away from it. A November 2026 re-check of the five 6-max opening charts against PokerData's public per-hand charts found totals within 0.2 points and no hand more than 10 points off. The other 6-max charts were not re-checked, because that data now needs an API key:</p>
-      <ul>
-        <li><b>Opening ranges (UTG-BTN), facing an open, facing a 3-bet, cold 4-bets and squeezes</b>: the average per-hand error against that solution is now about 1% (it was about 7%). The biggest corrections were narrower big-blind flats (BB vs BTN defends about 46%, not 60%), wider flats against 3-bets (UTG continues about 54% of its opens vs an in-position 3-bet), almost no cold flats from the HJ/CO, and A6s-A9s 3-betting as often as the wheel aces against HJ/CO opens. Every 6-max cold 4-bet and squeeze seat combination (20 of each) has its own chart; 9-max combinations with no 6-max equivalent, such as two early seats acting before you, use a chart shared by the hero's seat group (for squeezes, from PokerCoaching's 8-max charts).</li>
-        <li><b>Blind vs blind</b> (SB open or limp, BB vs SB open, SB vs a BB 3-bet, BB vs SB limp, SB vs a raise after limping) follow that solution hand by hand, rounded to 5%: the SB raises about 36% and limps about 15%, the BB 3-bets 17% and calls 53% against the raise and isolates about 41% of limps. Bet sizes throughout the trainer match that solution too.</li>
-        <li><b>Heads-up</b>: our own solve of this exact game (these bet sizes, 5% rake capped at 0.5bb, 100bb deep), finished November 2026. Each of 18 rounds solved the postflop game of all six preflop pots (limped, limp-raised, limp-3-bet, opened, 3-bet and 4-bet) on 50 sampled flops with the open-source <a href="https://github.com/b-inary/postflop-solver" target="_blank" rel="noopener">postflop-solver</a>, each to within 0.5% of the pot, then solved the preflop tree against those hand values. Each round&rsquo;s values are corrected for which flops its sample happened to draw, using every hand&rsquo;s exact equity on all 1,755 distinct flops; checked against a library with every flop solved, that cuts the sampling error about threefold. The charts are the average of the last six rounds, rounded to 5% steps, and no hand is played ahead of a stronger hand of the same kind. It is the equilibrium of a simplified game (one bet size per street, raises on the flop only), not of full poker, and a single hand&rsquo;s mix can still be about 5 points off. Compared with <a href="https://poker-coaching.s3.amazonaws.com/tools/preflop-charts/100bb-hunl-cash-game-charts.pdf" target="_blank" rel="noopener">PokerCoaching&rsquo;s 100bb HUNL cash charts</a> (3bb opens, 12bb 3-bets): its BB 3-bets 22.7% and calls 37.8% of hands, here 24% and 38%. Its SB raises 78% and never limps, while here the SB raises 49% and limps 44%; the 4-bets match as a share of all the SB&rsquo;s hands (8% here, 7% there), so they are a larger share of the narrower raising range (16% against 9%).</li>
-      </ul>
-      <p>Different rake or sizing assumptions move the edges of every range, and two solvers can disagree by 20-30% on a single mixed hand. If you train against a solver with different sizes, expect the edges to differ, not the core.</p>
-      <p><b>Heads-up note:</b> heads-up is its own model, not a blind-vs-blind spot from 6-max. The small blind is the button and acts last postflop, so it raises about 49% and limps about 44% of hands, folding only the worst 8% (weak offsuit hands), and the big blind, out of position, defends about 62% of hands, 3-betting 24%. The five heads-up spots (SB open with a limp option, BB vs open, SB vs 3-bet, BB vs limp, SB vs a raise after limping) have their own ranges.</p>
-      <p><b>Table sizes:</b> every table from 3 to 9 players uses the same charts, matched seat by seat on the number of players still to act. A seat with <i>n</i> players behind it faces the same decision whether the seats before it were folded or never existed, so each seat plays as the 9-max seat with that many players behind: 3-max is the 9-max CO-and-earlier-fold spot (BTN, SB, BB), 4-max adds the CO, 5-max the HJ, 6-max UTG is the 9-max LJ (5 behind), 7-max UTG is UTG+2 (6 behind), 8-max UTG and UTG+1 are 9-max UTG+1 and UTG+2 (7 and 6 behind; 8-max UTG is where the PokerCoaching 8-max charts come from). The chart footer names the 9-max seat a spot uses. What this leaves out is card removal: players who folded in front of you hold slightly weaker hands than average, so the players left are fractionally stronger. Real 3- and 4-handed solves open the button and cutoff a few percent wider than the same seat at a full table; that difference has not been measured here, because we found no free per-hand 3- to 5-handed 100bb solution to compare with.</p>
-      <p><b>9-max note:</b> a 9-max seat with the same number of players left to act is structurally the same decision as its 6-max counterpart, so LJ/HJ/CO/BTN/SB opens reuse the 6-max strategies and UTG, UTG+1 and UTG+2 have their own tighter opening ranges. Opens from 9-max UTG, UTG+1 and UTG+2 (about 10-13% of hands, far tighter than the 6-max UTG open) are answered with tighter dedicated charts (keys ending in <code>_vs_EP9</code>), and those seats answer a 3-bet with their own <code>EP9_*</code> charts, which 4-bet fewer bluffs. These charts were built against a slightly tighter open than UTG+2's, because no chart for that seat is available. The 9-max UTG open follows GTO Wizard's published <a href="https://blog.gtowizard.com/navigating-nasty-rivers-out-of-position/" target="_blank" rel="noopener">9-handed 100bb UTG range</a> (read from the chart, rounded to 5%), then capped at the UTG+1 range, so it is tighter than that chart: AJo, K7s and K8s drop out, and A6s, K5s and K6s open less often. UTG+1 and UTG+2, the responses to an early open (<code>_vs_EP9</code>) and UTG-UTG+2 facing a 3-bet (<code>EP9_*</code>) follow PokerCoaching's 8-max 100bb cash charts, taken from a third-party copy of that data rather than from PokerCoaching directly, and matched by the number of players left behind (8-max UTG = 9-max UTG+1). That solution opens 3bb and 3-bets to 10-12bb, bigger than the sizes shown here, and flats more against early opens than the 6-max solution. Some of its lines look odd and are kept as published, so treat them as doubtful: from the earliest seats TT folds to most 3-bets while smaller pairs call, and AQo always folds to a 3-bet.</p>
-      <p>Because the early seats and the rest of the table come from different solutions, the ranges step sharply at the LJ: opens go from 13% at UTG+2 to 18% at the LJ (15.7% in the PokerCoaching solution), and the big blind defends 15% against a UTG+2 open but 26.5% against a LJ open. Opening seats are capped at the next seat's frequency so ranges do not tighten as you move later, except K5s and 65s, which UTG+1 opens more often than UTG+2.</p>
-
-      <div class="two-col">
-        <div>
-          <h2>Opening ranges</h2>
-          <table id="about-rfi"></table>
-        </div>
-        <div>
-          <h2>6-max defence vs an open</h2>
-          <table id="about-defend"></table>
-        </div>
-      </div>
-
-      <h2>How answers are scored</h2>
-      <ul>
-        <li><b>Correct</b>: you picked the most frequent GTO action, or any action GTO takes at least 50% of the time. Worth 1 point.</li>
-        <li><b>Acceptable (mixed)</b>: GTO takes your action sometimes, but another action is the main line. Worth the action's frequency (e.g. 0.3 points for a 30% action).</li>
-        <li><b>Mistake</b>: GTO never takes your action with that hand. 0 points. A mistake that costs an estimated 1bb or more is labelled a <b>blunder</b>.</li>
-      </ul>
-      <p>Accuracy is points divided by hands. Stats are kept in your browser only.</p>
-
-      <h2>EV loss</h2>
-      <p>Every answer also shows an <b>estimated EV loss</b> in big blinds: how much your action costs compared with playing the GTO strategy, the same idea GTO Wizard's trainer reports. Two rules from game theory drive it:</p>
-      <ul>
-        <li>At equilibrium, every action a hand mixes between has the same EV, so choosing <i>any</i> action GTO plays with that hand loses nothing. Only actions GTO never takes cost EV.</li>
-        <li>For those, EV loss = EV(GTO mix) − EV(your action), where EV(GTO mix) is the frequency-weighted EV of the actions GTO does take.</li>
-      </ul>
-      <p>The EVs come from a compact preflop model built on the same ranges the trainer uses. Equity is computed by Monte Carlo simulation of your exact cards against the villain's real range (with card removal), and the standard fold-equity formulas are applied:</p>
-      <pre>EV(raise) = P(fold) × pot  +  P(call) × (postflop value − invested)  +  P(re-raise) × EV(vs re-raise)
-EV(call)  = postflop value − invested       (minus a squeeze penalty when players remain behind)
-EV(fold)  = −(blinds or raises already invested)
-postflop value = EQR × equity × (pot − rake)  +  implied value</pre>
-      <p><b>EQR</b> is equity realization: in position about 100%, out of position about 82%, +2% for the last aggressor, scaled by hand type (AK and big pairs realize ~101-117%, weak offsuit and junk hands ~73-76%; in 3-bet and 4-bet pots non-premium hands lose a further 15-17%, speculative hands like small pairs and suited connectors only 6-20%). Speculative hands also earn a little extra implied value for each big blind still behind. <b>Implied value</b> is what a hand that is well ahead of the villain's range wins on later streets: a share of the remaining stacks that grows as the stack-to-pot ratio falls, counted in full only for clear favourites, and for strong hands at least the value of getting stacks in against the villain's own strong hands (the ones that never fold). Without it a flat call with a monster would look far worse than a raise. The villain's fold/call/raise frequencies come from their ranges in this app; how a 3-bettor responds to a 4-bet, how players behind isolate a limp, and how the SB responds when its limp is raised are fixed approximations. Each spot is then calibrated once. At equilibrium a hand that mixes two actions is indifferent between them, so each action's EV is shifted by a constant fitted to make those mixed hands break even (with a fallback that separates pure hands when an action has no mixed hands). On the feedback card, every action GTO takes with your hand shows the GTO EV, and an action GTO never takes always shows at least a small loss (2% of the pot plus 0.05bb). Checked against the GTO ranges, the model's own best action matches GTO on about 93% of pure 6-max decisions, and its EVs for mixed hands sit about 0.7bb apart on average. Treat the numbers as a good ordering and a rough size (folding AA costs far more than flatting it, which costs more than opening 72o) rather than solver-exact values. Deviations with monster hands are the least certain, and heads-up estimates are rougher still.</p>
-      <p>Background reading: <a href="https://help.gtowizard.com/measure-performance/" target="_blank" rel="noopener">GTO Wizard: measuring performance (EV loss)</a>, <a href="https://blog.gtowizard.com/what-is-expected-value-in-poker/" target="_blank" rel="noopener">GTO Wizard: what is expected value</a>, <a href="https://blog.gtowizard.com/equity-realization/" target="_blank" rel="noopener">GTO Wizard: equity realization</a>, <a href="https://www.splitsuit.com/simple-poker-expected-value-formula" target="_blank" rel="noopener">SplitSuit: the EV formula</a>, <a href="https://upswingpoker.com/fold-equity/" target="_blank" rel="noopener">Upswing: fold equity</a>.</p>
-
-      <h2>The "why" notes</h2>
-      <p>After each hand (and when you hover a hand on the charts) a short note explains the decision: what kind of hand it is, why the position and the villain's range make the GTO action right, why GTO mixes when it does, and the general pattern it belongs to (why A5s 3-bets more than A9s, why small pairs fold to early opens but call late ones, and so on). The notes are rule-based, built from hand class, position, number of players behind and the opener's range, so they describe the standard solver reasoning rather than quoting a solver.</p>
-
-      <h2>Limping and "check"</h2>
-      <p>Every open offers a Call button, which is a limp: calling the big blind instead of raising. From UTG to the button GTO never takes it: in no-ante cash games the solvers raise or fold first in from those seats, and choosing it is scored as a mistake with its estimated EV loss (a limp wins no pot outright, lets the players behind isolate you, and caps your range). The small blind is the exception. In the reference solution it limps about 15% of hands, mostly middling suited and offsuit hands that play poorly in a raised pot out of position, plus a few traps with big pairs. Solvers disagree here: GTO Wizard's no-ante solution <a href="https://blog.gtowizard.com/how_to_crush_ante_cash_games/" target="_blank" rel="noopener">describes the SB limp</a> as "an option that is rarely taken without an ante", so treat the SB's limp frequencies as one solver's answer rather than settled. Heads-up the SB is the button and limps about 44% of its hands.</p>
-      <p>Checking is only possible preflop in the big blind when nobody has raised. In the "Limped pots" scenario the BB faces that SB limp (raising about 41% of hands to 3bb, checking the rest), and the SB faces the BB's raise after limping (re-raising about 12% and calling about 49% of its limps).</p>
-
-      <h2>Keyboard</h2>
-      <p><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> pick the first, second, third action; <kbd>Space</kbd> or <kbd>Enter</kbd> for the next hand.</p>
-    </div>
-  </section>
 </main>
+<footer class="site-foot">100bb no-ante cash, 5% rake capped at 0.5bb. Ranges are rounded approximations of <a href="https://pokerdata.io" target="_blank" rel="noopener">PokerData</a> (6-max), PokerCoaching (8-max, early 9-max seats) and our own solve (heads-up). Keys: <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> to act, <kbd>Space</kbd> for the next hand.</footer>
 
 <script src="js/hands.js"></script>
 <script src="js/ranges.js"></script>

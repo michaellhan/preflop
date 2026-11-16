@@ -6,7 +6,7 @@
      EV(call)  = postflop value - invested   (with a squeeze penalty when players remain behind)
      postflop value = EQR * equity * (pot - rake)  +  implied value for hands well ahead of the villain's range
    Equity = Monte Carlo vs the villain's actual range from ranges.js (with card removal).
-   EQR (equity realization) depends on position and initiative (see About page). */
+   EQR (equity realization) depends on position and initiative. */
 (function (root) {
   'use strict';
   const H = root.Hands, S = root.Spots, E = root.Equity;

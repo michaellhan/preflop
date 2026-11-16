@@ -6,7 +6,6 @@ Live at **https://www.michael-han.com/preflop/**
 
 - **Trainer** — random spot (open / facing an open / facing a 3-bet / BB vs SB limp) at any table size from heads-up to 9-max, you pick fold / call / raise (or limp on an open), and get graded against the equilibrium frequencies with the full range revealed, an estimated **EV loss** in bb, and a **"why" note** explaining the decision (hand class, position, villain's range, the pattern it belongs to).
 - **Range Charts** (`/preflop/ranges/`) — 13x13 reference charts for every position and scenario, split by action frequency.
-- **About the Data** (`/preflop/about/`) — game model, sizes, accuracy notes and scoring rules.
 
 ## Run
 
@@ -30,7 +29,7 @@ Prints calibrated model EVs for known cases, how often the model's best action m
 scripts/deploy.sh
 ```
 
-Copies `index.html`, `css/` and `js/` into the `preflop/` folder of the personal-site repo (plus `ranges/` and `about/` copies of the page so each view has its own URL) and pushes; GitHub Pages serves it at michael-han.com/preflop.
+Copies `index.html`, `css/` and `js/` into the `preflop/` folder of the personal-site repo (plus a `ranges/` copy of the page so the charts have their own URL, and an `about/` redirect for old links) and pushes; GitHub Pages serves it at michael-han.com/preflop.
 
 ## Validate the range data
 

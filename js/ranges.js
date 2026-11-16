@@ -6,7 +6,7 @@
    Frequencies are per-hand action weights (0..1). Hands not listed take the residual
    action (fold, or check for the BB vs limp spot). Mixed frequencies are rounded to
    5% steps. These are hand-curated approximations of 100bb equilibrium solver output
-   from the sources named on the About page. The heads-up charts are our own solve
+   from PokerData (6-max) and PokerCoaching (8-max, early 9-max seats). The heads-up charts are our own solve
    (solver/ in this repo: real postflop solves on sampled flops, the average
    of the last six of 18 rounds), not from those sources. Every 6-max spot was checked hand
    by hand against a free 100bb 6-max solution in October 2026: hands off by more than 10% were corrected, and the

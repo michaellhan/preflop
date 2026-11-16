@@ -11,12 +11,11 @@ cp -R "$HERE/css" "$HERE/js" "$WORK/site/preflop/"
 # Cloudflare caches .js/.css for hours, so tag them with the commit to make each deploy load fresh files.
 VER="$(cd "$HERE" && git rev-parse --short HEAD)"
 sed -E "s#(href|src)=\"((css|js)/[^\"]+)\"#\1=\"\2?v=$VER\"#g" "$HERE/index.html" > "$WORK/site/preflop/index.html"
-# Each view gets its own URL (/preflop/ranges/, /preflop/about/): a copy of the page whose
-# relative paths resolve from the app root.
-for view in ranges about; do
-  mkdir -p "$WORK/site/preflop/$view"
-  sed 's|<head>|<head><base href="../">|' "$WORK/site/preflop/index.html" > "$WORK/site/preflop/$view/index.html"
-done
+# The charts get their own URL (/preflop/ranges/): a copy of the page whose relative paths
+# resolve from the app root. The old /preflop/about/ page now just redirects to the trainer.
+mkdir -p "$WORK/site/preflop/ranges" "$WORK/site/preflop/about"
+sed 's|<head>|<head><base href="../">|' "$WORK/site/preflop/index.html" > "$WORK/site/preflop/ranges/index.html"
+printf '<!DOCTYPE html><meta http-equiv="refresh" content="0; url=../"><link rel="canonical" href="../">\n' > "$WORK/site/preflop/about/index.html"
 cd "$WORK/site"
 git add -A
 if git diff --cached --quiet; then echo "Site already up to date."; exit 0; fi

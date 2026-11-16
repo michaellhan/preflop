@@ -24,7 +24,7 @@
     'UTG': 'Under the gun', 'UTG+1': 'UTG+1', 'UTG+2': 'UTG+2', 'LJ': 'Lojack', 'HJ': 'Hijack',
     'CO': 'Cutoff', 'BTN': 'Button', 'SB': 'Small blind', 'BB': 'Big blind'
   };
-  // 9-max early positions share the 6-max UTG strategies (see About page). pos is a canonical (9-max) seat.
+  // 9-max early positions share the 6-max UTG strategies. pos is a canonical (9-max) seat.
   function classOf(pos) {
     return (pos === 'UTG+1' || pos === 'UTG+2' || pos === 'LJ') ? 'UTG' : pos;
   }
@@ -33,7 +33,7 @@
   function openerClass(pos) {
     return pos === 'UTG' || pos === 'UTG+1' || pos === 'UTG+2' ? 'EP9' : classOf(pos);
   }
-  /* Sizes follow the reference solution the ranges were checked against (see About page). */
+  /* Sizes follow the reference solution the ranges were checked against. */
   function openSize(pos) { return 2.5; }
   function threeBetSize(threeBettor, openerPos) {
     if (threeBettor === 'BB') return openerPos === 'SB' ? 7.5 : 12.5;

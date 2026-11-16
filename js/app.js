@@ -36,13 +36,12 @@
     $$('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
     window.scrollTo(0, 0);
     if (name === 'ranges') renderCharts();
-    if (name === 'about') renderAbout();
   }
-  // Each view has its own URL: ./ (trainer), ranges/ and about/. The subpage copies of index.html
+  // Each view has its own URL: ./ (trainer), and ranges/. The subpage copies of index.html
   // carry <base href="../">, so the app root is always the base URL's folder.
   // The root is fixed at load: on the main page (no <base>) relative URLs would otherwise resolve
   // against whatever pushState last set, e.g. ranges/ -> ranges/ranges/.
-  const VIEWS = ['trainer', 'ranges', 'about'];
+  const VIEWS = ['trainer', 'ranges'];
   const ROOT = new URL('./', document.baseURI);
   $$('.tab, #brand-link').forEach(a => { a.href = new URL(a.getAttribute('href'), ROOT).href; });
   function viewFromURL() {
@@ -714,7 +713,7 @@
     info.innerHTML = '<div class="muted">' + HOVER + ' a hand for its frequencies and the reasoning.</div>';
     $('#chart-why').classList.add('hidden');
     const src = $('#chart-source');
-    src.textContent = 'Data key: ' + spot.source + seatNote(spot) + (spot.opener && !/BTN_SB/.test(spot.source) ? ' (shared by every seat in your group facing this opener tier, see About)' : '');
+    src.textContent = 'Data key: ' + spot.source + seatNote(spot) + (spot.opener && !/BTN_SB/.test(spot.source) ? ' (shared by every seat in your group facing this opener tier)' : '');
   }
   /* Footer note: which 9-max seat each seat in the spot plays as (same number of players left to act), and
      when an early seat borrows the structurally equivalent 6-max chart. */
@@ -726,7 +725,7 @@
     if (pairs.length) notes.push(pairs.map(x => x[0] + ' plays as the 9-max ' + x[1]).join(', ') + ', the seat with the same players left to act');
     const early = /UTG\+|LJ/.test(c.hero + (c.villain || '') + (c.opener || ''));
     if (early && !/EP9|RFI9 UTG/.test(spot.source)) notes.push('early seats reuse the structurally equivalent 6-max strategy');
-    return notes.length ? ' (' + notes.join('; ') + ', see About)' : '';
+    return notes.length ? ' (' + notes.join('; ') + ')' : '';
   }
   /* One chart for every position: each hand is coloured by the earliest seat that raises it (later seats are
      looser); hover shows every seat's frequency. */
@@ -792,29 +791,6 @@
   }
   $$('#chart-table button').forEach(b => b.addEventListener('click', () => { charts.table = b.dataset.table; renderCharts(); }));
   $$('#chart-type button').forEach(b => b.addEventListener('click', () => { charts.type = b.dataset.type; charts.villain = null; renderCharts(); }));
-
-  /* ---------------- about ---------------- */
-  function renderAbout() {
-    const tbl = $('#about-rfi');
-    if (tbl.dataset.done) return;
-    tbl.dataset.done = '1';
-    let html = '<tr><th>Table</th><th>Position</th><th>Open %</th><th>Combos</th></tr>';
-    for (const tk of ['6max', '9max', 'hu']) {
-      for (const s of S.getSpots(tk).filter(x => x.type === 'rfi')) {
-        const rows = G.summarize(s.strategy, s.actions).rows.slice(0, -1); // everything but fold (heads-up counts limps)
-        const pct = rows.reduce((t, r) => t + r.pct, 0), combos = rows.reduce((t, r) => t + r.combos, 0);
-        html += '<tr><td>' + S.TABLES[tk].name + '</td><td>' + s.hero + '</td><td>' + pct.toFixed(1) + '%</td><td>' + combos.toFixed(0) + '</td></tr>';
-      }
-    }
-    tbl.innerHTML = html;
-    const def = $('#about-defend');
-    let h2 = '<tr><th>Spot</th><th>3-bet</th><th>Call</th><th>Fold</th></tr>';
-    for (const s of S.getSpots('6max').filter(x => x.type === 'vsOpen')) {
-      const r = G.summarize(s.strategy, s.actions).rows;
-      h2 += '<tr><td>' + s.title + '</td><td>' + r[0].pct.toFixed(1) + '%</td><td>' + r[1].pct.toFixed(1) + '%</td><td>' + r[2].pct.toFixed(1) + '%</td></tr>';
-    }
-    def.innerHTML = h2;
-  }
 
   /* ---------------- init ---------------- */
   renderSettings();
