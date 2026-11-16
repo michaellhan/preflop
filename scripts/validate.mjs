@@ -4,10 +4,14 @@ import vm from 'node:vm';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 const dir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'js');
-const ctx = vm.createContext({ console });
-for (const f of ['hands.js', 'ranges.js', 'spots.js']) vm.runInContext(fs.readFileSync(path.join(dir, f), 'utf8'), ctx, { filename: f });
-const { Hands, Spots } = ctx;
+// Both chart sets: no rake (the default) and the raked originals (localStorage 'preflop-rake' = 'raked').
 let failed = false;
+for (const mode of ['none', 'raked']) {
+const store = { getItem: (k) => (k === 'preflop-rake' ? mode : null) };
+const ctx = vm.createContext({ console, localStorage: store });
+for (const f of ['hands.js', 'ranges.js', 'ranges-norake.js', 'spots.js']) vm.runInContext(fs.readFileSync(path.join(dir, f), 'utf8'), ctx, { filename: f });
+const { Hands, Spots } = ctx;
+console.log('\n######## ' + (ctx.RAKE_MODE === 'raked' ? '5% rake, 0.5bb cap' : 'no rake') + ' ########');
 for (const table of Object.keys(Spots.TABLES)) {
   let spots;
   try { spots = Spots.getSpots(table); } catch (e) { console.error('ERROR building', table, e.message); failed = true; continue; }
@@ -26,6 +30,7 @@ for (const table of Object.keys(Spots.TABLES)) {
     }
     console.log(s.title.padEnd(28) + String(r).padStart(8) + String(c).padStart(8) + String(f).padStart(8) + '   ' + s.source + extra);
   }
+}
 }
 if (failed) process.exit(1);
 console.log('\nAll ranges parsed; no hand exceeds 100%.');

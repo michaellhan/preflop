@@ -2,6 +2,18 @@
 (function (root) {
   'use strict';
   const S = root.Spots;
+  /* Percent of all hands a chart string plays (the notes quote these, so they follow the rake setting). */
+  const H = root.Hands;
+  function share(str) {
+    const m = H.parseRange(str || '');
+    let c = 0;
+    for (const h in m) c += H.combos(h) * m[h];
+    return Math.round(100 * c / 1326);
+  }
+  const RG = root.RANGES;
+  const SB_RAISE = share(RG.RFI6.SB), SB_LIMP = share(RG.RFI6.SB_LIMP);
+  const HU_RAISE = share(RG.HU.SB_OPEN.raise), HU_PLAY = HU_RAISE + share(RG.HU.SB_OPEN.limp);
+  const HU_DEFEND = share(RG.HU.BB_vs_SB.raise) + share(RG.HU.BB_vs_SB.call);
   const RV = { A: 14, K: 13, Q: 12, J: 11, T: 10, 9: 9, 8: 8, 7: 7, 6: 6, 5: 5, 4: 4, 3: 3, 2: 2 };
 
   function classify(hand) {
@@ -123,7 +135,7 @@
   function vsOpenReason(spot, c, hand, primary, freqs) {
     const V = spot.villain, hero = spot.hero;
     const vc = posClass(V), ip = inPosition(spot.table, hero, V);
-    const vDesc = vc === 'early' ? 'an early-position open (a tight range of about 15-18%)' : vc === 'middle' ? 'a hijack open (about 22%)' : V === 'CO' ? 'a cutoff open (about 29%)' : V === 'BTN' ? 'a button open (about 45%)' : 'a small-blind open (about 36%, plus limps)';
+    const vDesc = vc === 'early' ? 'an early-position open (a tight range of about 15-18%)' : vc === 'middle' ? 'a hijack open (about ' + share(RG.RFI6.HJ) + '%)' : V === 'CO' ? 'a cutoff open (about ' + share(RG.RFI6.CO) + '%)' : V === 'BTN' ? 'a button open (about ' + share(RG.RFI6.BTN) + '%)' : 'a small-blind open (about ' + SB_RAISE + '%, plus limps)';
     const heroDesc = hero === 'BB' ? (V === 'SB' ? 'BB vs SB: you close the action with position, so you defend very wide.' : 'In the BB you close the action at a good price, but play out of position.') : hero === 'SB' ? 'The SB is out of position with the BB still behind, so it mostly 3-bets or folds.' : ip ? (behind(spot.table, hero) > 2 ? 'You have position, but ' + (behind(spot.table, hero) - 2) + ' player(s) plus the blinds behind can squeeze.' : 'You have position and only the blinds behind.') : '';
     let why = '';
     if (primary === 'raise') {
@@ -343,7 +355,7 @@
     if (spot.type === 'vsOpen' && spot.hero === 'BB' && spot.villain === 'SB')
       return 'BB vs SB is the widest defence in poker: you close the action, get a good price and have position.';
     if (spot.type === 'rfi' && spot.hero === 'SB' && (c.cat === 'offsuit-junk' || c.cat === 'offsuit-connector'))
-      return 'The SB plays about half its hands: it raises ~36% and limps ~15%, folding the rest. With only the BB left it can play wide, but out of position it keeps many middling hands in a cheap limped pot instead of raising them.';
+      return 'The SB plays about ' + (SB_RAISE + SB_LIMP) + '% of its hands: it raises ~' + SB_RAISE + '% and limps ~' + SB_LIMP + '%, folding the rest. With only the BB left it can play wide, but out of position it keeps many middling hands in a cheap limped pot instead of raising them.';
     return null;
   }
 
@@ -357,8 +369,8 @@
       return 'Even heads-up, the weakest offsuit hands lose money in every line: no high cards, no suit, poor connectivity.';
     }
     if (spot.type === 'vsOpen') {
-      if (primary === 'raise') return strong ? 'The BB 3-bets for value: out of position it prefers to build the pot now against a ~55% raising range rather than play a big range disadvantage postflop.' : 'The BB 3-bets this hand as a bluff: it has blockers or nut potential, folds cheaply to a 4-bet, and out of position it would realize little equity as a call.';
-      if (primary === 'call') return playable ? 'Against a ~55% opening range the BB closes the action at a good price; this hand has enough equity and playability to call even out of position.' : 'The price is good enough to call against such a wide range, though the hand must play carefully out of position.';
+      if (primary === 'raise') return strong ? 'The BB 3-bets for value: out of position it prefers to build the pot now against a ~' + HU_RAISE + '% raising range rather than play a big range disadvantage postflop.' : 'The BB 3-bets this hand as a bluff: it has blockers or nut potential, folds cheaply to a 4-bet, and out of position it would realize little equity as a call.';
+      if (primary === 'call') return playable ? 'Against a ~' + HU_RAISE + '% opening range the BB closes the action at a good price; this hand has enough equity and playability to call even out of position.' : 'The price is good enough to call against such a wide range, though the hand must play carefully out of position.';
       return 'Against even a wide heads-up open, this hand realizes too little equity out of position to pay 1.5bb more.';
     }
     if (spot.type === 'vs3bet') {
@@ -381,7 +393,7 @@
     if (spot.table === 'hu') {
       const played = spot.actions.filter(a => freqs[a.key] > 0);
       return { what: '', why: huReason(spot, c, hand, primary), mix: played.length > 1 ? played.map(a => a.label.replace(/ [\d.~]+bb$/, '') + ' ' + pct(freqs[a.key])).join(' / ') : null,
-        compare: spot.type === 'rfi' ? 'Heads-up the SB is the button: it raises or limps about 87% of hands, far more than the ~51% it plays (36% raise, 15% limp) at a full table.' : (spot.type === 'vsOpen' ? 'The BB defends about two-thirds of hands here, and 3-bets more than at 6-max because it is out of position.' : null),
+        compare: spot.type === 'rfi' ? 'Heads-up the SB is the button: it raises or limps about ' + HU_PLAY + '% of hands, far more than the ~' + (SB_RAISE + SB_LIMP) + '% it plays (' + SB_RAISE + '% raise, ' + SB_LIMP + '% limp) at a full table.' : (spot.type === 'vsOpen' ? 'The BB defends about ' + HU_DEFEND + '% of hands here, and 3-bets more than at 6-max because it is out of position.' : null),
         cat: c.cat, catName: CAT_NAME[c.cat] };
     }
     const played = spot.actions.filter(a => freqs[a.key] > 0);

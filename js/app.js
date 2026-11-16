@@ -100,6 +100,7 @@
       wrap.appendChild(b);
     }
     $$('#dealing-select input').forEach(i => { i.checked = i.value === settings.dealing; });
+    $$('#rake-select input').forEach(i => { i.checked = i.value === (window.RAKE_MODE || 'none'); });
     $('#show-range').checked = !!settings.showRange;
     $('#auto-next').checked = !!settings.autoNext;
     $('#sound-on').checked = settings.sound !== false;
@@ -130,6 +131,12 @@
   $$('#table-select button').forEach(b => b.addEventListener('click', () => { settings.table = b.dataset.table; persistSettings(); }));
   $$('#type-select input').forEach(i => i.addEventListener('change', () => { settings.types[i.value] = i.checked; persistSettings(); }));
   $$('#dealing-select input').forEach(i => i.addEventListener('change', () => { if (i.checked) { settings.dealing = i.value; persistSettings(); } }));
+  // The charts and the EV model are built once at load, so a rake change saves the choice and reloads.
+  $$('#rake-select input').forEach(i => i.addEventListener('change', () => {
+    if (!i.checked) return;
+    try { localStorage.setItem('preflop-rake', i.value); } catch (e) { /* ignore */ }
+    location.reload();
+  }));
   $('#sound-on').addEventListener('change', e => { settings.sound = e.target.checked; saveJSON(SETTINGS_KEY, settings); if (settings.sound) window.Sound.play('correct'); });
   $('#auto-next').addEventListener('change', e => { settings.autoNext = e.target.checked; saveJSON(SETTINGS_KEY, settings); });
   $('#show-range').addEventListener('change', e => { settings.showRange = e.target.checked; saveJSON(SETTINGS_KEY, settings); if (current && current.answered) renderReveal(); });
@@ -713,7 +720,12 @@
     info.innerHTML = '<div class="muted">' + HOVER + ' a hand for its frequencies and the reasoning.</div>';
     $('#chart-why').classList.add('hidden');
     const src = $('#chart-source');
-    src.textContent = 'Data key: ' + spot.source + seatNote(spot) + (spot.opener && !/BTN_SB/.test(spot.source) ? ' (shared by every seat in your group facing this opener tier)' : '');
+    src.textContent = 'Data key: ' + spot.source + seatNote(spot) + (spot.opener && !/BTN_SB/.test(spot.source) ? ' (shared by every seat in your group facing this opener tier)' : '') + rakeNote([spot.source]);
+  }
+  /* Which rake the chart is for (the 6-max limped-pot charts have no no-rake version). */
+  function rakeNote(sources) {
+    if (window.RAKE_MODE === 'raked') return ' · 5% rake, 0.5bb cap';
+    return sources.some(s => /^VS_LIMP/.test(s)) ? ' · raked chart (no no-rake version of limped pots)' : ' · no rake';
   }
   /* Footer note: which 9-max seat each seat in the spot plays as (same number of players left to act), and
      when an early seat borrows the structurally equivalent 6-max chart. */
@@ -787,7 +799,7 @@
     info.innerHTML = '<div class="muted">' + HOVER + ' a hand to see how often each ' + (rfi ? 'seat raises' : who + ' gets a ' + verb) + ' with it.</div>';
     $('#chart-why').classList.add('hidden');
     $('#chart-table-svg').classList.add('hidden');
-    $('#chart-source').textContent = 'Data keys: ' + spots.map(s => s.source).join(', ');
+    $('#chart-source').textContent = 'Data keys: ' + spots.map(s => s.source).join(', ') + rakeNote(spots.map(s => s.source));
   }
   $$('#chart-table button').forEach(b => b.addEventListener('click', () => { charts.table = b.dataset.table; renderCharts(); }));
   $$('#chart-type button').forEach(b => b.addEventListener('click', () => { charts.type = b.dataset.type; charts.villain = null; renderCharts(); }));

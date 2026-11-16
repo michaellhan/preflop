@@ -62,8 +62,10 @@
   function seedOf(str) { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
 
   const STACK = 100;
-  /* Rake: 5% capped at 0.5bb (matches the reference solution the ranges were checked against), taken only from pots that see a flop (no flop, no drop). */
-  function rake(pot) { return Math.min(0.05 * pot, 0.5); }
+  /* Rake: none by default; with the "5% rake, 0.5bb cap" setting (the charts' original reference solution), 5% capped at
+     0.5bb, taken only from pots that see a flop (no flop, no drop). RAKE_MODE comes from ranges-norake.js. */
+  const RAKED = root.RAKE_MODE === 'raked';
+  function rake(pot) { return RAKED ? Math.min(0.05 * pot, 0.5) : 0; }
   /* Value of seeing a flop: the realized share of the raked pot, plus implied value for hands that are
      well ahead of the villain's range (they win further bets from worse hands on later streets; with
      100bb stacks that is most of what strong hands earn). e = equity realization, behind = stack left.

@@ -1,5 +1,6 @@
 /* ranges.js — preflop strategy data.
-   Model: 100bb effective, no ante, cash-game rake (5% capped at about 0.5bb, as in the reference solution).
+   Model: 100bb effective, no ante, cash-game rake (5% capped at about 0.5bb, as in the reference solution). These are
+   the "5% rake, 0.5bb cap" charts; ranges-norake.js derives the no-rake set (the default) from them.
    Open size: 2.5bb from every position; the SB also limps part of its range (RFI6.SB_LIMP).
    3-bet sizes: 7.5bb in position, 11.5bb from the SB, 12.5bb from the BB (7.5bb vs a SB open).
    4-bets 23bb over a 7.5bb 3-bet, 25bb over a blind 3-bet. Sizes follow the reference solution.

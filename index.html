@@ -59,6 +59,13 @@
           </div>
         </div>
         <div class="group">
+          <h3>Rake</h3>
+          <div id="rake-select">
+            <label class="check"><input type="radio" name="rake" value="none"> No rake</label>
+            <label class="check" title="The charts' original reference solution"><input type="radio" name="rake" value="raked"> 5% rake, 0.5bb cap</label>
+          </div>
+        </div>
+        <div class="group">
           <label class="check"><input type="checkbox" id="show-range"> Show range after answer</label>
           <label class="check"><input type="checkbox" id="auto-next"> Auto-advance when correct</label>
           <label class="check"><input type="checkbox" id="sound-on"> Sound</label>
@@ -170,6 +177,7 @@
 
 <script src="js/hands.js"></script>
 <script src="js/ranges.js"></script>
+<script src="js/ranges-norake.js"></script>
 <script src="js/spots.js"></script>
 <script src="js/equity.js"></script>
 <script src="js/explain.js"></script>
