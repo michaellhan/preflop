@@ -341,7 +341,7 @@
     if (spot.type === 'vsOpen' && (c.cat === 'suited-connector' || c.cat === 'suited-gapper') && spot.hero !== 'BB')
       return 'Facing an open, suited connectors are mostly 3-bet-or-fold hands from every seat except the BB: the HJ, CO, button and SB all keep only thin flatting ranges, because a player behind can still squeeze, while the BB closes the action at the best price and calls them freely.';
     if (spot.type === 'rfi' && posClass(spot.hero) === 'early' && (c.cat === 'suited-king' || c.cat === 'suited-connector' || c.cat === 'weak-offsuit-ace'))
-      return 'The same hand opens from the cutoff or button: ranges widen from ~18% UTG to ~42% on the button as fewer players remain behind.';
+      return 'The same hand opens from the cutoff or button: ranges widen from about ' + share(RG.RFI6.UTG) + '% UTG to about ' + share(RG.RFI6.BTN) + '% on the button as fewer players remain behind.';
     if (spot.type === 'vs3bet' && c.cat === 'wheel-suited-ace')
       return 'A5s/A4s are the most common 4-bet bluffs, with some A6s-A9s and small suited kings mixed in against late 3-bets: blocking AA/AK matters most against a narrow continuing range.';
     if (spot.type === 'vs3bet' && (c.cat === 'AK' || c.cat === 'premium-pair'))

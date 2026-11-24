@@ -3,6 +3,7 @@
    Each chart keeps its own hands and is shifted only by how much more (or less) a solver continues and raises at the
    same spot without rake: Lizard's preflop solver, solved at no rake and at 5% capped at 0.5bb. Without rake the
    blinds and the callers defend wider; opens barely move. The 6-max limped-pot charts (VS_LIMP) are unchanged.
+   The charts ranges-lizard.js takes from Lizard's come with their own no-rake version, used as it is.
    Data: one base-36 digit per hand (Hands.ALL_HANDS order) per action, 0..k = 0..100% in 5% steps.
    Which set the app uses: localStorage 'preflop-rake' ('none', the default, or 'raked'); RAKE_MODE says which. */
 (function (root) {
@@ -26,7 +27,9 @@
     NORAKE[g] = {};
     for (const k of Object.keys(RAKED[g])) {
       const was = RAKED[g][k], now = DATA[g] && DATA[g][k];
-      if (!now) NORAKE[g][k] = was;
+      const liz = root.RANGES_LIZARD_NONE && root.RANGES_LIZARD_NONE[g] && root.RANGES_LIZARD_NONE[g][k];
+      if (liz) NORAKE[g][k] = liz;   // a chart from Lizard's (ranges-lizard.js): its own no-rake version
+      else if (!now) NORAKE[g][k] = was;
       else if (typeof was === 'string') NORAKE[g][k] = str(now.raise);
       else {
         NORAKE[g][k] = {};

@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 const dir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'js');
 const ctx = vm.createContext({ console });
 const samples = Number(process.argv[2] || 400);
-for (const f of ['hands.js', 'ranges.js', 'ranges-norake.js', 'spots.js', 'equity.js', 'ev.js', 'explain.js']) {
+for (const f of ['hands.js', 'ranges.js', 'ranges-lizard.js', 'ranges-norake.js', 'spots.js', 'equity.js', 'ev.js', 'explain.js']) {
   let src = fs.readFileSync(path.join(dir, f), 'utf8');
   if (f === 'ev.js') src = src.replace('let SAMPLES = 1200;', 'let SAMPLES = ' + samples + ';');
   vm.runInContext(src, ctx, { filename: f });

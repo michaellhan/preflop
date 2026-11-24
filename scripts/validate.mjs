@@ -9,7 +9,7 @@ let failed = false;
 for (const mode of ['none', 'raked']) {
 const store = { getItem: (k) => (k === 'preflop-rake' ? mode : null) };
 const ctx = vm.createContext({ console, localStorage: store });
-for (const f of ['hands.js', 'ranges.js', 'ranges-norake.js', 'spots.js']) vm.runInContext(fs.readFileSync(path.join(dir, f), 'utf8'), ctx, { filename: f });
+for (const f of ['hands.js', 'ranges.js', 'ranges-lizard.js', 'ranges-norake.js', 'spots.js']) vm.runInContext(fs.readFileSync(path.join(dir, f), 'utf8'), ctx, { filename: f });
 const { Hands, Spots } = ctx;
 console.log('\n######## ' + (ctx.RAKE_MODE === 'raked' ? '5% rake, 0.5bb cap' : 'no rake') + ' ########');
 for (const table of Object.keys(Spots.TABLES)) {
