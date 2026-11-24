@@ -40,6 +40,18 @@ node scripts/validate.mjs
 
 Parses every range, fails on duplicate hands or frequencies over 100%, and prints the action percentages for every spot.
 
+## Compare with Lizard's solve
+
+```bash
+~/Desktop/projects/lizard/.venv/bin/python -B scripts/compare-lizard.py ~/Desktop/projects/lizard
+```
+
+Scores the raked 6-max charts and Lizard's stored preflop solve against the same published 6-max 100bb solves
+(Lizard's `solver/tests/preflop_refs.py`). On 2026-11-24 the charts stayed: Lizard is closer on spot totals (2.1 points
+against 6.2), but it was fitted to those totals, and on the held-out hand facts it is further off (18 of 26 out of
+bounds, 1,073 points outside them, against 15 and 462). It plays every hand class 0% or 100%, e.g. it never opens 44 or
+22 from UTG.
+
 ## Files
 
 - `js/ranges.js` — all range data in compact notation (`A5s:0.6` = 60% frequency).
