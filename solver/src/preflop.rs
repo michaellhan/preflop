@@ -113,18 +113,70 @@ fn cfr(ctx: &Ctx, st: &mut Cfr, n: usize, me: usize, mine: &[f64], opp: &[f64], 
 }
 
 /// Equilibrium of the preflop tree for fixed postflop values. `fallback` fills in hands that never reach a node.
-pub fn solve(ctx: &Ctx, iters: usize, fallback: &Strategy) -> Strategy {
-    let blank = |x: f64| -> Strategy { ctx.tree.iter().map(|n| vec![vec![x; N]; n.actions.len()]).collect() };
-    let mut st = Cfr { regret: blank(0.0), sum: blank(0.0) };
-    let one = vec![1.0; N];
-    for i in 1..=iters {
-        for p in [SB, BB] { cfr(ctx, &mut st, 0, p, &one, &one, i as f64); }
-    }
+pub fn solve(ctx: &Ctx, iters: usize, fallback: &Strategy) -> Strategy { solve_full(ctx, iters, fallback, &[]).0 }
+
+fn average(st: &Cfr, fallback: &Strategy) -> Strategy {
     let mut out = fallback.clone();
-    for n in 0..ctx.tree.len() { for h in 0..N {
+    for n in 0..st.sum.len() { for h in 0..N {
         let t: f64 = st.sum[n].iter().map(|a| a[h]).sum();
         if t > 1e-9 { for a in 0..st.sum[n].len() { out[n][a][h] = st.sum[n][a][h] / t; } }
     } }
+    out
+}
+
+/// `solve`, also returning the final cumulative (CFR+, floored) regrets and the exploitability of the average
+/// strategy (bb per hand, both players' best-response gains added) at each iteration count in `checkpoints`.
+pub fn solve_full(ctx: &Ctx, iters: usize, fallback: &Strategy, checkpoints: &[usize]) -> (Strategy, Strategy, Vec<(usize, f64)>) {
+    let blank = |x: f64| -> Strategy { ctx.tree.iter().map(|n| vec![vec![x; N]; n.actions.len()]).collect() };
+    let mut st = Cfr { regret: blank(0.0), sum: blank(0.0) };
+    let one = vec![1.0; N];
+    let mut conv = Vec::new();
+    for i in 1..=iters {
+        for p in [SB, BB] { cfr(ctx, &mut st, 0, p, &one, &one, i as f64); }
+        if checkpoints.contains(&i) { conv.push((i, exploitability(ctx, &average(&st, fallback)))); }
+    }
+    (average(&st, fallback), st.regret, conv)
+}
+
+/// bb per hand both players together would gain by best-responding to `s` (rake makes the game non-zero-sum, so
+/// each player's gain is measured against what they get playing `s`, not against zero).
+pub fn exploitability(ctx: &Ctx, s: &Strategy) -> f64 {
+    let one = vec![1.0; N];
+    let cc = crate::cards::class_combos();
+    let tot = |v: Vec<f64>| (0..N).map(|h| v[h] * cc[h].len() as f64).sum::<f64>() / 1326.0 / 1225.0;
+    [SB, BB].iter().map(|&p| tot(evaluate(ctx, s, 0, p, &one, true)) - tot(evaluate(ctx, s, 0, p, &one, false))).sum()
+}
+
+/// Per own decision node: each action's value per combo (bb, given the hand reaches the node, against the
+/// opponent's range there), the opponent mass the hand faces there (counterfactual reach), and the hand's own reach.
+pub struct NodeAudit { pub action_ev: Vec<Vec<f64>>, pub opp_mass: Vec<f64>, pub own_reach: Vec<f64> }
+
+pub fn audit(ctx: &Ctx, s: &Strategy, me: usize) -> Vec<Option<NodeAudit>> {
+    let mut out: Vec<Option<NodeAudit>> = (0..ctx.tree.len()).map(|_| None).collect();
+    fn rec(ctx: &Ctx, s: &Strategy, n: usize, me: usize, mine: &[f64], opp: &[f64], out: &mut Vec<Option<NodeAudit>>) -> Vec<f64> {
+        let node = &ctx.tree[n];
+        let na = node.actions.len();
+        if node.player == me {
+            let vals: Vec<Vec<f64>> = (0..na).map(|a| {
+                let r2: Vec<f64> = (0..N).map(|h| mine[h] * s[n][a][h]).collect();
+                match node.actions[a].1 { Child::Go(c) => rec(ctx, s, c, me, &r2, opp, out), t => ctx.terminal(t, me, opp) }
+            }).collect();
+            let m = ctx.opp_mass(opp);
+            let per = |a: usize| -> Vec<f64> { (0..N).map(|h| if m[h] > 1e-12 { vals[a][h] / m[h] } else { 0.0 }).collect() };
+            out[n] = Some(NodeAudit { action_ev: (0..na).map(per).collect(), opp_mass: m, own_reach: mine.to_vec() });
+            (0..N).map(|h| (0..na).map(|a| s[n][a][h] * vals[a][h]).sum()).collect()
+        } else {
+            let mut ev = vec![0.0; N];
+            for a in 0..na {
+                let r2: Vec<f64> = (0..N).map(|o| opp[o] * s[n][a][o]).collect();
+                let v = match node.actions[a].1 { Child::Go(c) => rec(ctx, s, c, me, mine, &r2, out), t => ctx.terminal(t, me, &r2) };
+                for h in 0..N { ev[h] += v[h]; }
+            }
+            ev
+        }
+    }
+    let one = vec![1.0; N];
+    rec(ctx, s, 0, me, &one, &one, &mut out);
     out
 }
 

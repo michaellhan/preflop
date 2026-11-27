@@ -13,7 +13,7 @@ use std::{collections::HashMap, fs, io::Write, process::Command, time::{Duration
 const CHIPS: f32 = 20.0; // chips per bb
 const FLOOR: f32 = 0.001; // every hand stays in every pot at this weight so it gets a value for deviating
 
-struct Opts { dir: String, rounds: usize, flops: usize, early_flops: usize, early_rounds: usize, tree: String, target: f32, early_target: f32, alpha: f64, late_alpha: f64, iters: usize, start: String, response: f64, shift_from: usize, correct_from: usize }
+struct Opts { dir: String, rounds: usize, flops: usize, early_flops: usize, early_rounds: usize, tree: String, target: f32, early_target: f32, alpha: f64, late_alpha: f64, iters: usize, start: String, response: f64, shift_from: usize, correct_from: usize, avg_values_from: usize, audit: Option<(usize, usize)>, out: String, save: Option<String> }
 
 fn arg(a: &HashMap<String, String>, k: &str, d: &str) -> String { a.get(k).cloned().unwrap_or(d.to_string()) }
 
@@ -29,10 +29,17 @@ fn parse() -> Opts {
         iters: arg(&a, "iters", "4000").parse().unwrap(), start: arg(&a, "start", "start.txt"), response: arg(&a, "response", "1.0").parse().unwrap(),
         shift_from: arg(&a, "shift-from", "1000000").parse().unwrap(),
         correct_from: arg(&a, "correct-from", "1000000").parse().unwrap(),
+        avg_values_from: arg(&a, "avg-values-from", "1000000").parse().unwrap(),
+        audit: a.get("audit").map(|r| { let (x, y) = r.split_once('-').unwrap_or((r, r)); (x.parse().unwrap(), y.parse().unwrap()) }),
+        out: arg(&a, "out", "audit.json"),
+        save: a.get("save").cloned(),
     }
 }
 
+static QUIET: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 fn log(dir: &str, s: &str) {
+    if QUIET.load(std::sync::atomic::Ordering::Relaxed) { eprintln!("{s}"); return; }
     println!("{s}");
     let mut f = fs::OpenOptions::new().create(true).append(true).open(format!("{dir}/log.txt")).unwrap();
     writeln!(f, "{s}").unwrap();
@@ -206,14 +213,161 @@ fn summary(t: &[Node], s: &Strategy) -> String {
     o
 }
 
+/// The postflop values (and the reference equities the preflop solve's response is measured from) of one round:
+/// solves each pot on the round's flop sample against the ranges of `s` (the strategy the round started from),
+/// reading flops already on disk. With `may_solve` false a missing flop is an error (audits only read).
+fn round_inputs(o: &Opts, round: usize, s: &Strategy, eq: &[Vec<f64>], compat: &[Vec<f64>], all_flops: &[([u8; 3], u32)], may_solve: bool) -> (Values, Vec<PotRef>) {
+    let early = round < o.early_rounds;
+    let nf = if early { o.early_flops } else { o.flops };
+    let target = if early { o.early_target } else { o.target };
+    // from --shift-from on, each round solves a different flop sample (see sample_flops_at)
+    let flops = if round >= o.shift_from { sample_flops_at(nf, shift(round - o.shift_from + 1)) } else { sample_flops(nf) };
+    let ranges = pot_ranges(s);
+    let rdir = format!("{}/round_{}", o.dir, round);
+    fs::create_dir_all(&rdir).unwrap();
+    let mut values: Values = Vec::new();
+    for p in 0..POTS {
+        let mut rows: Vec<Vec<f64>> = Vec::with_capacity(nf);
+        let (mut worst, mut secs, mut peak) = (0.0f32, 0.0f64, 0.0f64);
+        for (i, f) in flops.iter().enumerate() {
+            let path = format!("{rdir}/{}_{i}.txt", POT_INFO[p].0);
+            let row: Vec<f64> = match read_flop(&path) {
+                Some((e, row)) => { worst = worst.max(e); row }
+                None => {
+                    assert!(may_solve, "{path} is missing or damaged");
+                    if fs::metadata(&path).is_ok() { log(&o.dir, &format!("re-solving damaged {path}")); }
+                    wait_until_ok(&o.dir);
+                    let (row, e, sec, mem) = solve_flop(*f, p, &ranges[p], o, target);
+                    worst = worst.max(e); secs += sec; peak = peak.max(mem);
+                    let txt: Vec<String> = row.iter().map(|v| format!("{v:.9e}")).collect();
+                    write_durable(&path, &format!("{e} {sec}\n{}\n", txt.join(" ")));
+                    heartbeat(&o.dir);
+                    row
+                }
+            };
+            rows.push(row);
+        }
+        log(&o.dir, &format!("round {round} pot {}: {nf} flops, {secs:.0}s, peak {peak:.2}GB, worst expl {worst:.3}% pot", POT_INFO[p].0));
+        let mass = |pl: usize| -> Vec<&[f64]> { rows.iter().map(|r| &r[pl * 2 * N..pl * 2 * N + N]).collect() };
+        let mv = |pl: usize| -> Vec<&[f64]> { rows.iter().map(|r| &r[pl * 2 * N + N..pl * 2 * N + 2 * N]).collect() };
+        if round >= o.correct_from {
+            // remove the part of the sample average that comes from which flops were drawn (correct.rs)
+            let exact = exact_numbers(&o.dir, &rdir, p, &ranges[p], all_flops);
+            let st = eq_stats([range_of(&ranges[p][BB]), range_of(&ranges[p][SB])], &flops);
+            let cc = class_combos();
+            let mut out: [Vec<f64>; 2] = [Vec::new(), Vec::new()];
+            let mut note = String::new();
+            for (pl, sp, name) in [(SB, 1usize, "SB"), (BB, 0, "BB")] {
+                let stats: Vec<&Side> = st.iter().map(|s| &s[sp]).collect();
+                let (v, plain, beta) = correct(&mass(pl), &mv(pl), &stats, &exact[sp], 2.0 * POT_INFO[p].1);
+                // size of the change, over the classes in this player's range (weighted by combos x range weight)
+                let w: Vec<f64> = (0..N).map(|c| ranges[p][pl][c] * cc[c].len() as f64).collect();
+                let mean = (0..N).map(|c| w[c] * (v[c] - plain[c]).abs()).sum::<f64>() / w.iter().sum::<f64>().max(1e-12);
+                let big = (0..N).filter(|&c| ranges[p][pl][c] > 0.05).max_by(|&a, &b| (v[a] - plain[a]).abs().total_cmp(&(v[b] - plain[b]).abs()));
+                note += &format!(" {name} mean {mean:.3}");
+                if let Some(c) = big { note += &format!(", largest {} {:+.3}", label(c), v[c] - plain[c]); }
+                note += &format!(" (slope on eq {:.2}/{:.2}/{:.2});", beta[0][0], beta[1][0], beta[2][0]);
+                out[pl] = v;
+            }
+            log(&o.dir, &format!("  corrected pot {}:{}", POT_INFO[p].0, note.trim_end_matches(';')));
+            values.push(out);
+        } else {
+            let val = |pl: usize| -> Vec<f64> { (0..N).map(|c| {
+                let m: f64 = mass(pl).iter().map(|r| r[c]).sum();
+                if m > 0.0 { mv(pl).iter().map(|r| r[c]).sum::<f64>() / m } else { 0.0 }
+            }).collect() };
+            values.push([val(SB), val(BB)]);
+        }
+    }
+    let refs: Vec<PotRef> = (0..POTS).map(|p| {
+        let side = |pl: usize| -> Vec<f64> {
+            let opp: Vec<f64> = ranges[p][1 - pl].iter().map(|w| w.max(FLOOR as f64)).collect();
+            (0..N).map(|h| {
+                let (mut m, mut e) = (0.0, 0.0);
+                for o in 0..N { let w = compat[h][o] * opp[o]; m += w; e += w * eq[h][o]; }
+                e / m
+            }).collect()
+        };
+        PotRef { size: 2.0 * POT_INFO[p].1, ref_eq: [side(SB), side(BB)] }
+    }).collect();
+    (values, refs)
+}
+
+/// Mean of several rounds' inputs. A pot's preflop-solve value is linear in (value, reference equity), so this is
+/// the mean of the values each hand would get in each round, as a function of the opponent's range.
+fn mean_inputs(list: Vec<(Values, Vec<PotRef>)>) -> (Values, Vec<PotRef>) {
+    let k = list.len() as f64;
+    let values: Values = (0..POTS).map(|p| std::array::from_fn(|pl| (0..N).map(|h| list.iter().map(|x| x.0[p][pl][h]).sum::<f64>() / k).collect())).collect();
+    let refs: Vec<PotRef> = (0..POTS).map(|p| PotRef { size: list[0].1[p].size,
+        ref_eq: std::array::from_fn(|pl| (0..N).map(|h| list.iter().map(|x| x.1[p].ref_eq[pl][h]).sum::<f64>() / k).collect()) }).collect();
+    (values, refs)
+}
+
+/// The inputs a round's preflop solve uses: that round's own, or from --avg-values-from on the mean of every round's
+/// inputs since then (each round's own values against the ranges it was solved with). A fixed step on the strategy
+/// let near-indifferent hands flip all the way every round (a two-round cycle); averaging the values instead lets
+/// the preflop solve itself find the mix that makes them indifferent.
+fn solve_inputs(o: &Opts, round: usize, own: (Values, Vec<PotRef>), eq: &[Vec<f64>], compat: &[Vec<f64>], all_flops: &[([u8; 3], u32)]) -> (Values, Vec<PotRef>) {
+    if round < o.avg_values_from { return own; }
+    let t = tree();
+    let mut list: Vec<(Values, Vec<PotRef>)> = (o.avg_values_from..round).map(|r| {
+        let s = load_strategy(&format!("{}/strategy_{}.txt", o.dir, r), &t);
+        round_inputs(o, r, &s, eq, compat, all_flops, false)
+    }).collect();
+    list.push(own);
+    log(&o.dir, &format!("  preflop solve uses the mean of rounds {}-{round}'s values", o.avg_values_from));
+    mean_inputs(list)
+}
+
+fn json_vec(v: &[f64]) -> String { format!("[{}]", v.iter().map(|x| format!("{x:.6}")).collect::<Vec<_>>().join(",")) }
+
+/// --audit A-B: solves the preflop tree against the mean of rounds A-B's inputs (each round's values against the
+/// ranges it started from; nothing new is solved) and writes every node's raw strategy, per-action values,
+/// regrets, reach and the convergence of the solve to --out (JSON); --save P also writes the strategy to P.
+fn audit_mode(o: &Opts, a: usize, b: usize, eq: &[Vec<f64>], compat: &[Vec<f64>], all_flops: &[([u8; 3], u32)]) {
+    QUIET.store(true, std::sync::atomic::Ordering::Relaxed);
+    let t = tree();
+    let list: Vec<(Values, Vec<PotRef>)> = (a..=b).map(|r| {
+        let s = load_strategy(&format!("{}/strategy_{}.txt", o.dir, r), &t);
+        round_inputs(o, r, &s, eq, compat, all_flops, false)
+    }).collect();
+    let (values, refs) = mean_inputs(list);
+    let ctx = Ctx { tree: &t, eq, compat, values: &values, pots: &refs, response: o.response };
+    let start = load_strategy(&format!("{}/strategy_{}.txt", o.dir, b), &t);
+    let marks = [50, 100, 250, 500, 1000, 2000, 4000, 8000, 16000];
+    let iters = *marks.iter().filter(|&&m| m <= o.iters).last().unwrap_or(&o.iters);
+    let (s, regret, conv) = solve_full(&ctx, iters, &start, &marks);
+    let audits = [audit(&ctx, &s, SB), audit(&ctx, &s, BB)];
+    let cc = class_combos();
+    let mut nodes = Vec::new();
+    for (n, node) in t.iter().enumerate() {
+        let au = audits[node.player].get(n).and_then(|x| x.as_ref()).unwrap();
+        let acts: Vec<String> = node.actions.iter().enumerate().map(|(k, act)| format!(
+            "{{\"action\":\"{}\",\"prob\":{},\"ev\":{},\"regret\":{}}}", act.0, json_vec(&s[n][k]), json_vec(&au.action_ev[k]), json_vec(&regret[n][k]))).collect();
+        nodes.push(format!("{{\"node\":\"{}\",\"player\":\"{}\",\"own_reach\":{},\"opp_mass\":{},\"actions\":[{}]}}",
+            node.name, if node.player == SB { "SB" } else { "BB" }, json_vec(&au.own_reach), json_vec(&au.opp_mass), acts.join(",")));
+    }
+    let labels: Vec<String> = (0..N).map(|h| format!("\"{}\"", label(h))).collect();
+    let combos: Vec<String> = (0..N).map(|h| cc[h].len().to_string()).collect();
+    let conv_s: Vec<String> = conv.iter().map(|(i, e)| format!("[{i},{e:.6}]")).collect();
+    let one = vec![1.0; N];
+    let tot = |v: Vec<f64>| (0..N).map(|h| v[h] * cc[h].len() as f64).sum::<f64>() / 1326.0 / 1225.0;
+    let body = format!("{{\"rounds\":[{a},{b}],\"iters\":{iters},\"sb_ev\":{:.6},\"bb_ev\":{:.6},\"exploitability\":[{}],\"hands\":[{}],\"combos\":[{}],\"nodes\":[{}]}}\n",
+        tot(evaluate(&ctx, &s, 0, SB, &one, false)), tot(evaluate(&ctx, &s, 0, BB, &one, false)), conv_s.join(","), labels.join(","), combos.join(","), nodes.join(","));
+    fs::write(&o.out, body).unwrap();
+    if let Some(p) = &o.save { save_strategy(p, &t, &s); eprintln!("saved the strategy to {p}"); }
+    eprintln!("wrote {} (rounds {a}-{b}, {iters} iterations, exploitability {:?})", o.out, conv.last());
+}
+
 fn main() {
     let o = parse();
     fs::create_dir_all(&o.dir).unwrap();
-    heartbeat(&o.dir);
     let t = tree();
     let eq = equity_table(&format!("{}/equity.txt", o.dir), 40000);
     let compat = compat_table();
     let all_flops = canonical_flops();
+    if let Some((a, b)) = o.audit { audit_mode(&o, a, b, &eq, &compat, &all_flops); return; }
+    heartbeat(&o.dir);
     log(&o.dir, &format!("check AA v KK {:.3}, AKs v QQ {:.3}, AKo v 22 {:.3}", eq[12 * 13 + 12][11 * 13 + 11], eq[12 * 13 + 11][10 * 13 + 10], eq[11 * 13 + 12][0]));
     let mut s = {
         let mut r = 0;
@@ -224,77 +378,8 @@ fn main() {
     if first == 0 { save_strategy(&format!("{}/strategy_0.txt", o.dir), &t, &s); }
     for round in first..o.rounds {
         let early = round < o.early_rounds;
-        let nf = if early { o.early_flops } else { o.flops };
-        let target = if early { o.early_target } else { o.target };
-        // from --shift-from on, each round solves a different flop sample (see sample_flops_at)
-        let flops = if round >= o.shift_from { sample_flops_at(nf, shift(round - o.shift_from + 1)) } else { sample_flops(nf) };
-        let ranges = pot_ranges(&s);
-        let rdir = format!("{}/round_{}", o.dir, round);
-        fs::create_dir_all(&rdir).unwrap();
-        let mut values: Values = Vec::new();
-        for p in 0..POTS {
-            let mut rows: Vec<Vec<f64>> = Vec::with_capacity(nf);
-            let (mut worst, mut secs, mut peak) = (0.0f32, 0.0f64, 0.0f64);
-            for (i, f) in flops.iter().enumerate() {
-                let path = format!("{rdir}/{}_{i}.txt", POT_INFO[p].0);
-                let row: Vec<f64> = match read_flop(&path) {
-                    Some((e, row)) => { worst = worst.max(e); row }
-                    None => {
-                        if fs::metadata(&path).is_ok() { log(&o.dir, &format!("re-solving damaged {path}")); }
-                        wait_until_ok(&o.dir);
-                        let (row, e, sec, mem) = solve_flop(*f, p, &ranges[p], &o, target);
-                        worst = worst.max(e); secs += sec; peak = peak.max(mem);
-                        let txt: Vec<String> = row.iter().map(|v| format!("{v:.9e}")).collect();
-                        write_durable(&path, &format!("{e} {sec}\n{}\n", txt.join(" ")));
-                        heartbeat(&o.dir);
-                        row
-                    }
-                };
-                rows.push(row);
-            }
-            log(&o.dir, &format!("round {round} pot {}: {nf} flops, {secs:.0}s, peak {peak:.2}GB, worst expl {worst:.3}% pot", POT_INFO[p].0));
-            let mass = |pl: usize| -> Vec<&[f64]> { rows.iter().map(|r| &r[pl * 2 * N..pl * 2 * N + N]).collect() };
-            let mv = |pl: usize| -> Vec<&[f64]> { rows.iter().map(|r| &r[pl * 2 * N + N..pl * 2 * N + 2 * N]).collect() };
-            if round >= o.correct_from {
-                // remove the part of the sample average that comes from which flops were drawn (correct.rs)
-                let exact = exact_numbers(&o.dir, &rdir, p, &ranges[p], &all_flops);
-                let st = eq_stats([range_of(&ranges[p][BB]), range_of(&ranges[p][SB])], &flops);
-                let cc = class_combos();
-                let mut out: [Vec<f64>; 2] = [Vec::new(), Vec::new()];
-                let mut note = String::new();
-                for (pl, sp, name) in [(SB, 1usize, "SB"), (BB, 0, "BB")] {
-                    let stats: Vec<&Side> = st.iter().map(|s| &s[sp]).collect();
-                    let (v, plain, beta) = correct(&mass(pl), &mv(pl), &stats, &exact[sp], 2.0 * POT_INFO[p].1);
-                    // size of the change, over the classes in this player's range (weighted by combos x range weight)
-                    let w: Vec<f64> = (0..N).map(|c| ranges[p][pl][c] * cc[c].len() as f64).collect();
-                    let mean = (0..N).map(|c| w[c] * (v[c] - plain[c]).abs()).sum::<f64>() / w.iter().sum::<f64>().max(1e-12);
-                    let big = (0..N).filter(|&c| ranges[p][pl][c] > 0.05).max_by(|&a, &b| (v[a] - plain[a]).abs().total_cmp(&(v[b] - plain[b]).abs()));
-                    note += &format!(" {name} mean {mean:.3}");
-                    if let Some(c) = big { note += &format!(", largest {} {:+.3}", label(c), v[c] - plain[c]); }
-                    note += &format!(" (slope on eq {:.2}/{:.2}/{:.2});", beta[0][0], beta[1][0], beta[2][0]);
-                    out[pl] = v;
-                }
-                log(&o.dir, &format!("  corrected pot {}:{}", POT_INFO[p].0, note.trim_end_matches(';')));
-                values.push(out);
-            } else {
-                let val = |pl: usize| -> Vec<f64> { (0..N).map(|c| {
-                    let m: f64 = mass(pl).iter().map(|r| r[c]).sum();
-                    if m > 0.0 { mv(pl).iter().map(|r| r[c]).sum::<f64>() / m } else { 0.0 }
-                }).collect() };
-                values.push([val(SB), val(BB)]);
-            }
-        }
-        let refs: Vec<PotRef> = (0..POTS).map(|p| {
-            let side = |pl: usize| -> Vec<f64> {
-                let opp: Vec<f64> = ranges[p][1 - pl].iter().map(|w| w.max(FLOOR as f64)).collect();
-                (0..N).map(|h| {
-                    let (mut m, mut e) = (0.0, 0.0);
-                    for o in 0..N { let w = compat[h][o] * opp[o]; m += w; e += w * eq[h][o]; }
-                    e / m
-                }).collect()
-            };
-            PotRef { size: 2.0 * POT_INFO[p].1, ref_eq: [side(SB), side(BB)] }
-        }).collect();
+        let own = round_inputs(&o, round, &s, &eq, &compat, &all_flops, true);
+        let (values, refs) = solve_inputs(&o, round, own, &eq, &compat, &all_flops);
         let ctx = Ctx { tree: &t, eq: &eq, compat: &compat, values: &values, pots: &refs, response: o.response };
         let inner = preflop::solve(&ctx, o.iters, &s);
         let alpha = if early { o.alpha } else { o.late_alpha };
@@ -309,9 +394,7 @@ fn main() {
         let total_of = |v: Vec<f64>| -> f64 { (0..N).map(|h| v[h] * cc[h].len() as f64).sum::<f64>() / 1326.0 };
         let norm = 1225.0;
         let sb_val = total_of(evaluate(&ctx, &next, 0, SB, &one, false)) / norm;
-        let sb_br = total_of(evaluate(&ctx, &next, 0, SB, &one, true)) / norm;
-        let bb_br = total_of(evaluate(&ctx, &next, 0, BB, &one, true)) / norm;
-        log(&o.dir, &format!("round {round} done: SB EV {sb_val:.3}bb, preflop gap {:.3}bb, largest move {:.1} points", sb_br + bb_br, change * 100.0));
+        log(&o.dir, &format!("round {round} done: SB EV {sb_val:.3}bb, preflop exploitability {:.3}bb, largest move {:.1} points", exploitability(&ctx, &next), change * 100.0));
         log(&o.dir, &format!("  {}", summary(&t, &next)));
         save_strategy(&format!("{}/strategy_{}.txt", o.dir, round + 1), &t, &next);
         s = next;

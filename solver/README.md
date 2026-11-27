@@ -38,6 +38,39 @@ Raise `--rounds` to continue a finished run. Progress is in `runs/hu/log.txt`, a
 `hu_charts.json`. With `--avg N` it uses the reach-weighted average of the last N rounds, which settles hands that
 flip between rounds because they are close to indifferent. Average only rounds run with the same settings.
 
+## Convergence: averaged values (2026-11-26)
+
+Rounds 6-17 never converged. Each round's preflop solve (CFR+, exploitability about 0.00001bb after 16,000
+iterations) answers that round's postflop values exactly, but those values swing round to round with the ranges
+they were solved against (SB A5s limp +0.94bb against round 16's values, -0.05bb against round 17's), so the
+near-indifferent hands flipped fully every round. With the strategy moved a fixed 60% toward each answer they
+settled into a two-round cycle (0.71, 0.29, 0.71, ...), and the charts, the average of rounds 13-18, put about half
+the SB's hands at an even raise/limp split. That was the cycle, not indifference.
+
+`--avg-values-from R` fixes it: from round R on, the preflop solve uses the mean of every round's values since R
+(each against the ranges that round was solved with) and the strategy takes the full step (`--late-alpha 1.0`).
+That is fictitious play on the values: mixed hands come out of the preflop solve at the mix that makes their
+actions equal in value. strategy_18.txt is the solve against the mean of rounds 12-17 (the cycle's strategy is kept
+as strategy_18.cycle.txt, its charts as hu_charts.cycle.json); rounds 18 on re-solve postflop against it:
+
+```bash
+./run.sh --dir runs/hu --tree B --rounds 21 --late-alpha 1.0 --shift-from 11 --correct-from 12 --avg-values-from 12
+```
+
+## Audit
+
+`./target/release/hu-solver --dir runs/hu --tree B --shift-from 11 --correct-from 12 --iters 16000 --audit A-B --out F.json`
+solves the preflop tree against the mean of rounds A-B's saved values (nothing new is solved; `--save P` also writes
+the strategy) and exports every node's raw probabilities, each action's value per combo (bb, given the hand reaches
+the node), the cumulative CFR+ regrets, each hand's own reach and the opponent mass it meets there (the
+full-width solve has no sampled visit counts; reach is the equivalent), and the solve's exploitability at 50 to
+16,000 iterations. `python3 audit_report.py F.json ...` prints the convergence, the SB's 50/50 count, the mixed
+hands' value gaps (they should be near zero) and the flagged hands' action values. `apply_charts.mjs` writes
+report.mjs's hu_charts.json into js/ranges.js.
+
+Exploitability in the log is now each player's best-response gain over their value playing the strategy, added;
+before, it was the two best-response values added, which rake pulled below zero (round 6's -0.051).
+
 Limits: 169 hand classes preflop, one bet size per street, raises on the flop only, and postflop values held fixed
 within a round. The output is the equilibrium of that simplified game, not of real poker.
 
