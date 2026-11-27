@@ -5,7 +5,6 @@ use crate::cards::N;
 pub const SB: usize = 0;
 pub const BB: usize = 1;
 pub const STACK: f64 = 100.0;
-pub const RAKE_CAP: f64 = 0.5;
 pub const POTS: usize = 6;
 /// name, each player's preflop investment in bb, postflop bet tree shape is chosen per run.
 pub const POT_INFO: [(&str, f64); POTS] = [
@@ -41,7 +40,8 @@ pub type Values = Vec<[Vec<f64>; 2]>; // values[pot][player][class]
 /// At a fixed point the ranges equal the solved ones, so this only shapes how the preflop solve responds to change.
 pub struct PotRef { pub size: f64, pub ref_eq: [Vec<f64>; 2] }
 
-pub struct Ctx<'a> { pub tree: &'a [Node], pub eq: &'a [Vec<f64>], pub compat: &'a [Vec<f64>], pub values: &'a Values, pub pots: &'a [PotRef], pub response: f64 }
+/// `allin_rake`: the rake (bb) taken from a 200bb all-in pot.
+pub struct Ctx<'a> { pub tree: &'a [Node], pub eq: &'a [Vec<f64>], pub compat: &'a [Vec<f64>], pub values: &'a Values, pub pots: &'a [PotRef], pub response: f64, pub allin_rake: f64 }
 
 impl Ctx<'_> {
     fn opp_mass(&self, reach: &[f64]) -> Vec<f64> {
@@ -64,7 +64,7 @@ impl Ctx<'_> {
             }
             Child::AllIn => (0..N).map(|h| {
                 let (c, e) = (&self.compat[h], &self.eq[h]);
-                (0..N).map(|o| c[o] * opp[o] * (e[o] * (2.0 * STACK - RAKE_CAP) - STACK)).sum()
+                (0..N).map(|o| c[o] * opp[o] * (e[o] * (2.0 * STACK - self.allin_rake) - STACK)).sum()
             }).collect(),
             Child::Go(_) => unreachable!(),
         }

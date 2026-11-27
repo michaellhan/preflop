@@ -13,7 +13,7 @@ use std::{collections::HashMap, fs, io::Write, process::Command, time::{Duration
 const CHIPS: f32 = 20.0; // chips per bb
 const FLOOR: f32 = 0.001; // every hand stays in every pot at this weight so it gets a value for deviating
 
-struct Opts { dir: String, rounds: usize, flops: usize, early_flops: usize, early_rounds: usize, tree: String, target: f32, early_target: f32, alpha: f64, late_alpha: f64, iters: usize, start: String, response: f64, shift_from: usize, correct_from: usize, avg_values_from: usize, audit: Option<(usize, usize)>, out: String, save: Option<String> }
+struct Opts { dir: String, rounds: usize, flops: usize, early_flops: usize, early_rounds: usize, tree: String, target: f32, early_target: f32, alpha: f64, late_alpha: f64, iters: usize, start: String, response: f64, shift_from: usize, correct_from: usize, avg_values_from: usize, audit: Option<(usize, usize)>, out: String, save: Option<String>, rake: f64, rake_cap: f64 }
 
 fn arg(a: &HashMap<String, String>, k: &str, d: &str) -> String { a.get(k).cloned().unwrap_or(d.to_string()) }
 
@@ -33,6 +33,9 @@ fn parse() -> Opts {
         audit: a.get("audit").map(|r| { let (x, y) = r.split_once('-').unwrap_or((r, r)); (x.parse().unwrap(), y.parse().unwrap()) }),
         out: arg(&a, "out", "audit.json"),
         save: a.get("save").cloned(),
+        // rake taken from every pot that sees a flop (and from all-ins): 5% capped at 0.5bb, the charts' original
+        // reference; --rake 0 solves the no-rake game
+        rake: arg(&a, "rake", "0.05").parse().unwrap(), rake_cap: arg(&a, "rake-cap", "0.5").parse().unwrap(),
     }
 }
 
@@ -122,7 +125,7 @@ fn save_strategy(path: &str, t: &[Node], s: &Strategy) {
     write_durable(path, &o);
 }
 
-fn tree_config(shape: &str, pot: i32, stack: i32) -> TreeConfig {
+fn tree_config(shape: &str, pot: i32, stack: i32, rake: f64, cap: f64) -> TreeConfig {
     // flop bet / flop raise / turn bet / river bet. Turn and river have no raises in any shape.
     let (fb, fr, tb, rb) = match shape {
         "C" => ("50%", "", "66%", "75%"),
@@ -133,7 +136,7 @@ fn tree_config(shape: &str, pot: i32, stack: i32) -> TreeConfig {
     let t = BetSizeOptions::try_from((tb, "")).unwrap();
     let r = BetSizeOptions::try_from((rb, "")).unwrap();
     TreeConfig {
-        initial_state: BoardState::Flop, starting_pot: pot, effective_stack: stack, rake_rate: 0.05, rake_cap: RAKE_CAP * CHIPS as f64,
+        initial_state: BoardState::Flop, starting_pot: pot, effective_stack: stack, rake_rate: rake, rake_cap: cap * CHIPS as f64,
         flop_bet_sizes: [f.clone(), f], turn_bet_sizes: [t.clone(), t], river_bet_sizes: [r.clone(), r],
         turn_donk_sizes: None, river_donk_sizes: None, add_allin_threshold: 1.5, force_allin_threshold: 0.15, merging_threshold: 0.1,
     }
@@ -152,7 +155,7 @@ fn solve_flop(flop: [u8; 3], pot_id: usize, ranges: &[Vec<f64>; 2], o: &Opts, ta
     let stack = ((STACK as f32 - invested) * CHIPS) as i32;
     // solver convention: player 0 is out of position (BB), player 1 in position (SB)
     let cfg = CardConfig { range: [range_of(&ranges[BB]), range_of(&ranges[SB])], flop, turn: NOT_DEALT, river: NOT_DEALT };
-    let mut g = PostFlopGame::with_config(cfg, ActionTree::new(tree_config(&o.tree, pot, stack)).unwrap()).unwrap();
+    let mut g = PostFlopGame::with_config(cfg, ActionTree::new(tree_config(&o.tree, pot, stack, o.rake, o.rake_cap)).unwrap()).unwrap();
     let (_, mem) = g.memory_usage();
     let t0 = Instant::now();
     g.allocate_memory(true);
@@ -332,7 +335,7 @@ fn audit_mode(o: &Opts, a: usize, b: usize, eq: &[Vec<f64>], compat: &[Vec<f64>]
         round_inputs(o, r, &s, eq, compat, all_flops, false)
     }).collect();
     let (values, refs) = mean_inputs(list);
-    let ctx = Ctx { tree: &t, eq, compat, values: &values, pots: &refs, response: o.response };
+    let ctx = Ctx { tree: &t, eq, compat, values: &values, pots: &refs, response: o.response, allin_rake: (o.rake * 2.0 * STACK).min(o.rake_cap) };
     let start = load_strategy(&format!("{}/strategy_{}.txt", o.dir, b), &t);
     let marks = [50, 100, 250, 500, 1000, 2000, 4000, 8000, 16000];
     let iters = *marks.iter().filter(|&&m| m <= o.iters).last().unwrap_or(&o.iters);
@@ -380,7 +383,7 @@ fn main() {
         let early = round < o.early_rounds;
         let own = round_inputs(&o, round, &s, &eq, &compat, &all_flops, true);
         let (values, refs) = solve_inputs(&o, round, own, &eq, &compat, &all_flops);
-        let ctx = Ctx { tree: &t, eq: &eq, compat: &compat, values: &values, pots: &refs, response: o.response };
+        let ctx = Ctx { tree: &t, eq: &eq, compat: &compat, values: &values, pots: &refs, response: o.response, allin_rake: (o.rake * 2.0 * STACK).min(o.rake_cap) };
         let inner = preflop::solve(&ctx, o.iters, &s);
         let alpha = if early { o.alpha } else { o.late_alpha };
         let mut next = s.clone();

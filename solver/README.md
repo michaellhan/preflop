@@ -57,6 +57,13 @@ as strategy_18.cycle.txt, its charts as hu_charts.cycle.json); rounds 18 on re-s
 ./run.sh --dir runs/hu --tree B --rounds 21 --late-alpha 1.0 --shift-from 11 --correct-from 12 --avg-values-from 12
 ```
 
+## No rake
+
+`--rake R --rake-cap C` (default 0.05 and 0.5bb) set the rake on every pot that sees a flop and on all-ins;
+`--rake 0 --rake-cap 0` solves the no-rake game. `runs/hu_r0/queue.sh` waits for the raked run above to finish,
+then solves the no-rake game from its last strategy (5 rounds, values averaged from round 1). Its charts are to
+replace the no-rake heads-up charts, which until then are the raked ones shifted by Lizard's spot totals.
+
 ## Audit
 
 `./target/release/hu-solver --dir runs/hu --tree B --shift-from 11 --correct-from 12 --iters 16000 --audit A-B --out F.json`
